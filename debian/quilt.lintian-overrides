@@ -1,0 +1,2 @@
+# It's a shell library, the shebang is mainly for syntax coloring detection by text editor
+quilt: script-not-executable ./usr/share/quilt/scripts/patchfns

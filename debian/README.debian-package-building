@@ -1,0 +1,7 @@
+This package sort of build-depend on itself. 
+
+It is safe to build it without having itself installed (and that's good for
+the autobuilders), but if you plan to hack on quilt, you'd better install
+quilt so that your changes get properly saved in debian/quilt/patches.
+
+Then, to hack happily around, just export QUILT_PATCHES=debian/patches
