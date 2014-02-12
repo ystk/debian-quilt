@@ -21,7 +21,7 @@ Author: Ryan Niebur <ryanryan52@gmail.com>
  # Read in library functions
  if [ "$(type -t patch_file_name)" != function ]
  then
-@@ -65,7 +63,7 @@
+@@ -65,7 +63,7 @@ if [ $status -ne 0 -a $status -ne 2 ]
  then
  	exit $status
  fi
@@ -32,7 +32,7 @@ Author: Ryan Niebur <ryanryan52@gmail.com>
  do
 --- a/quilt/header.in
 +++ b/quilt/header.in
-@@ -17,8 +17,6 @@
+@@ -17,8 +17,6 @@ then
  	. $QUILT_DIR/scripts/patchfns
  fi
  
@@ -41,7 +41,7 @@ Author: Ryan Niebur <ryanryan52@gmail.com>
  usage()
  {
  	printf $"Usage: quilt header [-a|-r|-e] [--backup] [--strip-diffstat] [--strip-trailing-whitespace] [patch]\n"
-@@ -149,7 +147,7 @@
+@@ -151,7 +149,7 @@ else
  
  	if [ -n "$opt_edit" ]
  	then
@@ -61,7 +61,7 @@ Author: Ryan Niebur <ryanryan52@gmail.com>
  # Read in library functions
  if [ "$(type -t patch_file_name)" != function ]
  then
-@@ -499,7 +497,7 @@
+@@ -524,7 +522,7 @@ introduction="$(gen_tempfile)"
  
  if [ -z "$opt_message" ]
  then
@@ -72,11 +72,11 @@ Author: Ryan Niebur <ryanryan52@gmail.com>
  		exit 1
 --- a/test/edit.test
 +++ b/test/edit.test
-@@ -8,6 +8,7 @@ $ cat > editor
+@@ -6,6 +6,7 @@ $ cat > editor
  < sed -e 's:foo:bar:' $1 > $1.new
  < mv $1.new $1
  $ chmod +x editor
 +$ unset VISUAL
- $ export EDITOR=%PWD/editor
+ $ export EDITOR=%{PWD}/editor
  
  $ quilt new patch

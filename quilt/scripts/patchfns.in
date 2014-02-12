@@ -1,5 +1,3 @@
-#! @BASH@
-
 # This file contains the common functions used in all quilt script
 # It is meant to be sourced by bash scripts.
 
@@ -20,7 +18,6 @@ export LANG=POSIX
 export QUILT_PATCHES QUILT_PC SUBDIR SERIES DB
 DB_VERSION=2
 
-: ${QUILT_PATCHES:=patches}
 : ${QUILT_PC:=.pc}
 
 # Support compatibility layer
@@ -44,32 +41,38 @@ if [ -n "$QUILT_COMMAND" ]; then
 	unset args
 fi
 
+. $QUILT_DIR/scripts/utilfns
+
 # ========================================================
 
-#declare -a exit_handlers
-#
-#add_exit_handler() {
-#	exit_handlers[${#exit_handlers[@]}]=$1
-#}
-#
-#remove_exit_handler() {
-#	declare -a handlers
-#	local h
-#	for h in "${exit_handlers[@]}"; do
-#		[ "$h" = "$1" ] && continue
-#		handlers[${#handlers[@]}]=$h
-#	done
-#	exit_handlers=( "${handlers[@]}" )
-#}
-#
-#run_exit_handlers() {
-#	local h
-#	for h in "${exit_handlers[@]}"; do
-#		eval $h
-#	done
-#}
-#
-#trap run_exit_handlers EXIT
+declare -a exit_handlers
+
+add_exit_handler() {
+	exit_handlers[${#exit_handlers[@]}]=$1
+}
+
+remove_exit_handler()
+{
+	declare -a handlers
+	local h
+	for h in "${exit_handlers[@]}"
+	do
+		[ "$h" = "$1" ] && continue
+		handlers[${#handlers[@]}]=$h
+	done
+	exit_handlers=( "${handlers[@]}" )
+}
+
+run_exit_handlers()
+{
+	local h
+	for h in "${exit_handlers[@]}"
+	do
+		eval $h
+	done
+}
+
+trap run_exit_handlers EXIT
 
 # ========================================================
 
@@ -83,42 +86,6 @@ quote_bre()
 quote_re()
 {
 	echo "$1" | sed -e 's:\([][?{(|)}^$/.+*\\]\):\\\1:g'
-}
-
-basename()
-{
-	local path=$1
-	while [ "${path:(-1)}" = "/" ]
-	do
-		path=${path%/}
-	done
-	echo "${path##*/}"
-}
-
-dirname()
-{
-	local path=$1
-	while [ "${path:(-1)}" = "/" ]
-	do
-		path=${path%/}
-	done
-	local basename="${path##*/}"
-	path="${path:0:${#path}-${#basename}}"
-	while [ "${path:(-1)}" = "/" ]
-	do
-		path=${path%/}
-	done
-	if [ -n "$path" ]
-	then
-		echo "$path"
-	else
-		if [ ${1:0:1} = "/" ]
-		then
-			echo "/"
-		else
-			echo "."
-		fi
-	fi
 }
 
 patch_file_name()
@@ -238,7 +205,14 @@ patch_in_series()
 insert_in_series()
 {
 	local patch=$1 patch_args=$2
-	local before=${3-$(patch_after "$(top_patch)")} tmpfile
+	local before tmpfile
+
+	if [ -e "$SERIES" -a ! -f "$SERIES" ]; then
+		printf $"%s is not a regular file\n" "$SERIES" >&2
+		return 1
+	fi
+
+	before=${3-$(patch_after "$(top_patch)")}
 
 	if [ -n "$patch_args" ]
 	then
@@ -253,7 +227,7 @@ insert_in_series()
 		/^'"$(quote_re $before)"'([ \t]|$)/ \
 				{ print "'"$patch$patch_args"'" }
 				{ print }
-		' $SERIES > $tmpfile
+		' "$SERIES" > $tmpfile
 		status=$?
 		if [ $status -ne 0 ]
 		then
@@ -261,13 +235,13 @@ insert_in_series()
 			return 1
 		fi
 	else
-		if [ -e $SERIES ]
+		if [ -e "$SERIES" ]
 		then
-			cat $SERIES > $tmpfile
+			cat "$SERIES" > $tmpfile
 		fi
 		echo "$patch$patch_args" >> $tmpfile
 	fi
-	cat $tmpfile > $SERIES
+	cat $tmpfile > "$SERIES"
 	rm -f $tmpfile
 }
 
@@ -480,7 +454,12 @@ find_first_patch()
 	local patch=$(cat_series | head -n 1)
 	if [ -z "$patch" ]
 	then
-		printf $"No patches in series\n" >&2
+		if [ -e "$SERIES" ]
+		then
+			printf $"No patches in series\n" >&2
+		else
+			printf $"No series file found\n" >&2
+		fi
 		return 1
 	fi
 
@@ -492,7 +471,12 @@ find_last_patch()
 	local patch=$(cat_series | tail -n 1)
 	if [ -z "$patch" ]
 	then
-		printf $"No patches in series\n" >&2
+		if [ -e "$SERIES" ]
+		then
+			printf $"No patches in series\n" >&2
+		else
+			printf $"No series file found\n" >&2
+		fi
 		return 1
 	fi
 
@@ -516,9 +500,15 @@ find_patch()
 	local name="$1"
 	if [ -e "$SERIES" ]
 	then
+		if ! [ -f "$SERIES" ]
+		then
+			printf $"%s is not a regular file\n" "$SERIES" >&2
+			return 1
+		fi
+
 		local patch=${1#$SUBDIR_DOWN$QUILT_PATCHES/}
 		local bre=$(quote_bre "$patch")
-		set -- $(sed -e "/^$bre\(\|\.patch\|\.diff\?\)\(\|\.gz\|\.bz2\)\([ "$'\t'"]\|$\)/!d" \
+		set -- $(sed -e "/^$bre\(\|\.patch\|\.diff\?\)\(\|\.gz\|\.bz2\|\.xz\|\.lzma\)\([ "$'\t'"]\|$\)/!d" \
 			       -e 's/[ '$'\t''].*//' $SERIES)
 		if [ $# -eq 1 ]
 		then
@@ -617,10 +607,21 @@ find_patch_file()
 {
 	local name="$1"
 
-	if [ -r "$name" ]
+	if [ ${name:0:1} = / ]
 	then
-		echo "$name"
-		return
+		# Patch has absolute path
+		if [ -r "$name" ]
+		then
+			echo "$name"
+			return
+		fi
+	else
+		# Patch has a relative path
+		if [ -r "$SUBDIR$name" ]
+		then
+			echo "$SUBDIR$name"
+			return
+		fi
 	fi
 
 	local patch
@@ -648,11 +649,9 @@ files_in_patch()
 
 	if [ -d "$path" ]
 	then
-		local files
-		files=( $(find "$path" -type f \
-			       -a ! -path "$path/.timestamp") ) \
-		|| return 1
-		printf "%s\n" "${files[@]#$path/}"
+		find "$path" -type f \
+			       -a ! -path "$path/.timestamp" |
+		sed -e "s:$path/::"
 	fi
 }
 
@@ -745,8 +744,9 @@ diff_file()
 					-r "$new_file")
 	fi
 
-	diff $QUILT_DIFF_OPTS $old_file $new_file \
+	diff $QUILT_DIFF_OPTS \
 	     --label "$old_hdr$old_date" --label "$new_hdr$new_date" \
+	     "$old_file" "$new_file" \
 	| if read line
 	then
 		if [ -z "$QUILT_NO_DIFF_INDEX" ]
@@ -772,6 +772,10 @@ cat_file()
 				gzip -cd "$filename" ;;
 			*.bz2)
 				bzip2 -cd "$filename" ;;
+			*.xz)
+				xz -cd "$filename" ;;
+			*.lzma)
+				lzma -cd "$filename" ;;
 			*)
 				cat "$filename" ;;
 			esac
@@ -790,6 +794,10 @@ cat_to_new_file()
 		gzip -c ;;
 	*.bz2)
 		bzip2 -c ;;
+	*.xz)
+		xz -c ;;
+	*.lzma)
+		lzma -c ;;
 	*)
 		cat ;;
 	esac \
@@ -839,17 +847,6 @@ in_array()
 	return 1
 }
 
-gen_tempfile()
-{
-	local name
-	if [ "$1" = -d ]
-	then
-		mktemp -d ${2:-${TMPDIR:-/tmp}/${0// /_}}.XXXXXX
-	else
-		mktemp ${1:-${TMPDIR:-/tmp}/${0// /_}}.XXXXXX
-	fi
-}
-
 first_modified_by()
 {
 	local file=$1 patch
@@ -884,7 +881,7 @@ apply_patch_temporarily()
 	local prefix=$QUILT_PC/$patch/
 	[ ${prefix:0:1} == / ] || prefix=$PWD/$prefix
 	if ! ( cd $workdir && \
-	       $QUILT_LIB/backup-files -B $prefix -rks ${@:--} )
+	       $QUILT_DIR/scripts/backup-files -B $prefix -r -k -s ${@:--} )
 	then
 		printf $"Failed to copy files to temporary directory\n" >&2
 		return 1
@@ -915,7 +912,7 @@ next_filename()
 {
 	local patch=$1 base num
         base=$(echo "$patch" \
-               | sed -r -e 's:(\.gz|\.bz2)$::' -e 's:(\.diff?|\.patch)$::')
+               | sed -r -e 's:(\.gz|\.bz2|\.xz|\.lzma)$::' -e 's:(\.diff?|\.patch)$::')
         num=$(echo "$base" | sed -nre 's:.*-([0-9]+)$:\1:'p)
         [ -n "$num" ] || num=1
         echo "${base%-$num}-$((num+1))${patch#$base}"
@@ -926,6 +923,14 @@ create_db() {
 	then
 		mkdir -p $QUILT_PC
 		echo $DB_VERSION > $QUILT_PC/.version
+	fi
+	if ! [ -e $QUILT_PC/.quilt_patches ]
+	then
+		echo "$QUILT_PATCHES" > $QUILT_PC/.quilt_patches
+	fi
+	if ! [ -e $QUILT_PC/.quilt_series ]
+	then
+		echo "$QUILT_SERIES" > $QUILT_PC/.quilt_series
 	fi
 }
 
@@ -953,7 +958,7 @@ print_patch() {
 
 setup_colors()
 {
-	local C=diff_hdr=32:diff_add=36:diff_mod=35:diff_rem=35:diff_hunk=33:diff_ctx=35:diff_cctx=33:patch_offs=33:patch_fuzz=35:patch_fail=31:patch_applied=32:clear=00
+	local C=diff_hdr=32:diff_add=36:diff_mod=35:diff_rem=35:diff_hunk=33:diff_ctx=35:diff_cctx=33:patch_offs=33:patch_fuzz=35:patch_fail=31:patch_applied=32:series_app=32:series_top=33:series_una=00:clear=00
 	[ -n "$QUILT_COLORS" ] && C="$C:$QUILT_COLORS"
 
 	C=${C//=/=\'$'\e'[}
@@ -967,6 +972,52 @@ quilt_command()
 	shift
 
 	QUILT_COMMAND="" bash $BASH_OPTS -c "${SUBDIR:+cd $SUBDIR;} . $QUILT_DIR/$command" "quilt $command" "$@"
+}
+
+declare pager_fifo pager_fifo_dir pager_pid
+
+wait_for_pager()
+{
+	exec >&-
+	wait $pager_pid
+	rm $pager_fifo 2>/dev/null
+	rmdir $pager_fifo_dir 2>/dev/null
+}
+
+wait_for_pager_signal()
+{
+	remove_exit_handler wait_for_pager
+	wait_for_pager
+	trap - INT HUP TERM QUIT
+}
+
+# Spawn pager process and redirect the rest of our output to it
+setup_pager()
+{
+	test -t 1 || return 0
+
+	# QUILT_PAGER = QUILT_PAGER | GIT_PAGER | PAGER | less
+	# NOTE: QUILT_PAGER='' is significant
+	QUILT_PAGER=${QUILT_PAGER-${GIT_PAGER-${PAGER-less}}}
+
+	[ -z "$QUILT_PAGER" -o "$QUILT_PAGER" = "cat" ]  && return 0
+
+	export LESS="${LESS:-FRSX}"
+
+	# NOTE: with "exec > >($pager)" there is no way to get the pid of the
+	# pager so we can't wait for it to complete.  Otherwise we wouldn't
+	# need temporary files here.  Alternatively, in recent versions of
+	# bash, a coprocess could be used instead.
+
+	pager_fifo_dir="$(gen_tempfile -d)"
+	pager_fifo="$pager_fifo_dir/0"
+	mkfifo -m 600 "$pager_fifo"
+	$QUILT_PAGER < "$pager_fifo" &
+	pager_pid=$!
+	exec > "$pager_fifo"
+
+	trap wait_for_pager_signal INT HUP TERM QUIT
+	add_exit_handler wait_for_pager
 }
 
 #
@@ -983,14 +1034,14 @@ quilt_command()
 # drivers/net/.
 
 unset SUBDIR SUBDIR_DOWN
-if ! [ -d "$QUILT_PATCHES" ]
+if ! [ -d "$QUILT_PC" -o -d "${QUILT_PATCHES:-patches}" ]
 then
     basedir=$PWD
     while [ -n "$basedir" ]
     do
 	basedir=${basedir%/*}
 	down=$down../
-	if [ -d "$basedir/$QUILT_PATCHES" ]
+	if [ -d "$basedir/$QUILT_PC" -o -d "$basedir/${QUILT_PATCHES:-patches}" ]
 	then
 	    SUBDIR="${PWD#$basedir/}/"
 	    SUBDIR_DOWN=$down
@@ -1005,15 +1056,26 @@ then
     unset basedir down
 fi
 
-: ${QUILT_SERIES:=series}
+if [ -r $QUILT_PC/.quilt_patches ]
+then
+	: ${QUILT_PATCHES:=$(< $QUILT_PC/.quilt_patches)}
+else
+	: ${QUILT_PATCHES:=patches}
+fi
+if [ -r $QUILT_PC/.quilt_series ]
+then
+	: ${QUILT_SERIES:=$(< $QUILT_PC/.quilt_series)}
+else
+	: ${QUILT_SERIES:=series}
+fi
 
 if [ "${QUILT_SERIES:0:1}" = / ]
 then
 	SERIES=$QUILT_SERIES
-elif [ -e $QUILT_PC/$QUILT_SERIES ]
+elif [ -f $QUILT_PC/$QUILT_SERIES ]
 then
 	SERIES=$QUILT_PC/$QUILT_SERIES
-elif [ -e $QUILT_SERIES ]
+elif [ -f $QUILT_SERIES ]
 then
 	SERIES=$QUILT_SERIES
 else

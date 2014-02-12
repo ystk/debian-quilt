@@ -1,49 +1,54 @@
 #!/usr/bin/make -f
-# -*- mode: makefile; coding: utf-8 -*-
 
-# $Id: rules,v 1.15 2005/01/06 19:32:53 mquinson Exp $
+# Where we want quilt to install files
+export BUILD_ROOT=$(CURDIR)/debian/quilt
 
-# Import Common Debian Build System (CDBS).
-include /usr/share/cdbs/1/rules/debhelper.mk
-include /usr/share/cdbs/1/class/autotools.mk
+%:
+	dh $@
 
-# Here is a badly nammed changelog file
-DEB_INSTALL_CHANGELOGS_ALL = quilt.changes
+override_dh_auto_clean:
+	test ! -e Makefile || touch Makefile # Avoids auto-rebuild rule to kick-in
+	dh_auto_clean
+	# Restore pristine l10n files
+	for po in po/*.backup; do test ! -e $$po || mv $$po $${po%%.backup}; done
 
-# installing under debian/tmp...
-DEB_MAKE_ENVVARS := BUILD_ROOT=$(CURDIR)/debian/tmp LC_ALL=C
-DEB_MAKE_CHECK_TARGET = check
+override_dh_auto_configure:
+	dh_auto_configure -- --with-docdir=/usr/share/doc/quilt --with-sendmail=/usr/sbin/sendmail --with-awk=/usr/bin/awk
 
-# ... and moving it to the right dir using dh_install
-DEB_DH_INSTALL_SOURCEDIR := debian/tmp
-
-# also specify the full path to sendmail, as requested by policy
-DEB_CONFIGURE_EXTRA_FLAGS := --with-sendmail=/usr/sbin/sendmail
-
-# distribute a text version of the doc
-common-build-indep::
-	mkdir doc/tmp || true
+override_dh_auto_build:
+	# Backup a pristine copy of l10n files
+	for po in po/*.po po/quilt.pot; do cp $$po $$po.backup; done
+	# Build quilt
+	dh_auto_build
+	# Build a HTML/txt copy of the documentation
+	mkdir -p doc/tmp
 	cd doc/tmp; LC_ALL=C hevea ../main.tex ; LC_ALL=C hevea ../main.tex; LC_ALL=C hevea ../main.tex
 	perl -pe 'if (/\\sh{.*}/) {s:\\sh{(.*)}:<I>$$1</I>:}'	\
 	     < doc/tmp/main.html > doc/quilt.html
 	LC_ALL=C perl -e '$$/ = undef; $$f=<>; $$f =~ s|<A[^>]*?HREF="[^"]*#[^"]*">(.*?)</A>|$$1|msg; print $$f;' < doc/tmp/main.html > doc/tmp/tmp.html
 	LC_ALL=C lynx doc/tmp/tmp.html -dump > doc/quilt.txt
+	rm -rf doc/tmp
 	pod2man -c Debhelper debian/dh_quilt_patch debian/dh_quilt_patch.1
 	pod2man -c Debhelper debian/dh_quilt_unpatch debian/dh_quilt_unpatch.1
 
-clean::
-	rm -rf doc/quilt.txt doc/quilt.html doc/tmp test/.pc test/d
-	rm -f compat/awk compat/sendmail
-	rm -f debian/dh_quilt_patch.1 debian/dh_quilt_unpatch.1
+override_dh_auto_install:
+	dh_auto_install
+	rm -f debian/quilt/etc/quilt.quiltrc
 
-# Don't even try to build the package when /proc is not mounted since the
-# checks will fail after a long while. Closes: #380598
+override_dh_installchangelogs:
+	dh_installchangelogs quilt.changes
+
+override_dh_compress:
+	# Don't compress the .pdf, it's annoying and brings almost nothing
+	# since the format is already compressed
+	dh_compress -X.pdf
+
+override_dh_auto_test:
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
-pre-build::
 	@if ! [ -d /proc/1 ]; then \
 	   echo "quilt needs a mounted /proc to correctly build";\
-	   echo "If you really want to build without /proc, add nocheck to the DEB_BUILD_OPTIONS"; \
+	   echo "If you really want to build without /proc, add nocheck to DEB_BUILD_OPTIONS"; \
 	   exit 1; \
 	fi
+	dh_auto_test
 endif
-

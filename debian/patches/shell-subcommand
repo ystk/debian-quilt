@@ -1,9 +1,14 @@
+Description: Implement a new "quilt shell" command
+ The command launches a shell in a duplicate environment. After exiting
+ the shell, any modifications made in this environment are applied to the
+ topmost patch.
+Author: Josselin Mouette <joss@debian.org>
+Bug-Debian: http://bugs.debian.org/526141
+
 ---
  quilt/shell.in |   67 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 67 insertions(+)
 
-Index: b/quilt/shell.in
-===================================================================
 --- /dev/null
 +++ b/quilt/shell.in
 @@ -0,0 +1,67 @@
@@ -74,3 +79,14 @@ Index: b/quilt/shell.in
 +done
 +
 +rm -rf $tmpdir
+--- a/bash_completion
++++ b/bash_completion
+@@ -97,7 +97,7 @@ _quilt_completion()
+     # quilt sub commands 
+     cmds='add annotate applied delete diff edit files fold fork graph \
+           grep header import mail new next patches pop previous push refresh \
+-	  remove rename revert series setup snapshot top unapplied'
++	  remove rename revert series setup shell snapshot top unapplied'
+ 
+     # if no command were given, complete on commands
+     if [[ $COMP_CWORD -eq 1 ]] ; then

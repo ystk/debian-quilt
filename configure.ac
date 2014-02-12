@@ -1,30 +1,12 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([quilt],[0.48],[quilt-dev@nongnu.org])
+AC_INIT([quilt],[0.60],[quilt-dev@nongnu.org])
 AC_CONFIG_AUX_DIR(config)
 AC_PREREQ(2.53)
 AC_REVISION ($Revision: 1.84 $)
 
 PACKAGE_RELEASE=1
 AC_SUBST(PACKAGE_RELEASE)
-
-dnl Setup for backup-files compilation
-AC_HEADER_STDC
-AC_CHECK_FUNCS([fchmod chmod])
-AC_CHECK_FUNCS([mkstemp mktemp], break)
-AC_CHECK_FUNCS([mkdir rmdir])
-AC_CHECK_FUNCS([strchr strrchr])
-AC_CHECK_FUNCS([strerror])
-AC_C_CONST
-AC_FUNC_STAT
-
-#AC_CONFIG_LIBOBJ_DIR(lib)
-#AC_REPLACE_FUNCS()
-
-if test "$ac_compiler_gnu" = "yes"; then
-  CFLAGS="$CFLAGS -Wall"
-fi
-EXEEXT="$ac_cv_exeext"
-AC_SUBST(EXEEXT)
+AC_SUBST(PACKAGE_TARNAME)
 
 AC_PROG_INSTALL
 
@@ -49,9 +31,9 @@ QUILT_COMPAT_PROG_PATH(BASH, bash)
 # though the result /could/ be available to us directly as $BASH_VERSION we
 # don't want to use, or trust it, incase the user is specifying a different
 # bash executable.
-if `$BASH -c '[[ "$BASH_VERSION" \< "2.04" ]]'` ; then
+if `$BASH -c '[[ "$BASH_VERSION" \< "3.0" ]]'` ; then
     AC_MSG_ERROR([
-$PACKAGE_NAME requires at least version 2.04 of bash, you can download a current
+$PACKAGE_NAME requires at least version 3.0 of bash, you can download a current
 version of bash from ftp.gnu.org
 ])
 fi
@@ -69,18 +51,6 @@ You can get this patch at ftp://ftp.gnu.org/gnu/bash/
 fi
 
 QUILT_COMPAT_PROG_PATH(CP, cp, [gcp cp])
-AC_MSG_CHECKING(whether $CP -l works)
-touch conftest.1
-if $CP -l conftest.1 conftest.2 2>/dev/null; then
-	AC_MSG_RESULT(yes)
-else
-	AC_MSG_ERROR([no
-
-You appear to have a `cp' that does not support hard links.
-You can download GNU fileutils from ftp.gnu.org
-])
-fi
-
 QUILT_COMPAT_PROG_PATH(DATE, date, [gdate date])
 
 if test -z "$INTERNAL_DATE"; then
@@ -157,6 +127,29 @@ Solaris users can use /usr/xpg4/bin/tr.
 ])
 fi
 
+QUILT_COMPAT_PROG_PATH(STAT, stat)
+
+AC_MSG_CHECKING([whether $STAT -c '%h' works])
+if $STAT -c '%h' /dev/null >/dev/null 2>/dev/null; then
+	AC_MSG_RESULT(yes)
+	STAT_HARDLINK="-c '%h'"
+else
+	AC_MSG_RESULT(no)
+	AC_MSG_CHECKING([whether $STAT -f '%l' works])
+	if $STAT -f '%l' /dev/null >/dev/null 2>/dev/null; then
+		AC_MSG_RESULT(yes)
+		STAT_HARDLINK="-f '%l'"
+	else
+		AC_MSG_RESULT(no)
+		AC_MSG_ERROR([
+Sorry, you have a version of stat which understands neither -c nor -f.
+$PACKAGE_NAME needs it.  If you have access to a version of stat which does
+understand -c or -f, you can supply its path with the '--with-stat=' option.
+])
+	fi
+fi
+AC_SUBST(STAT_HARDLINK)
+
 QUILT_COMPAT_PROG_PATH(SED, sed)
 
 AC_MSG_CHECKING([whether $SED understands (foo|bar)])
@@ -228,7 +221,7 @@ fi
 QUILT_COMPAT_PROG_PATH(MKTEMP, mktemp)
 if test -z "$INTERNAL_MKTEMP" ; then
     AC_MSG_CHECKING(whether $MKTEMP -d works)
-    if tempdir=`$MKTEMP -d /tmp/$PACKAGE_NAME.XXXXXX 2>/dev/null` && \
+    if tempdir=`$MKTEMP -d ${TMPDIR:-/tmp}/$PACKAGE_NAME.XXXXXX 2>/dev/null` && \
        rmdir "$tempdir" ; then
 	AC_MSG_RESULT(yes)
     else
@@ -274,13 +267,17 @@ fi
 AC_MSG_CHECKING([the version of $PATCH])
 if $PATCH --version 2> /dev/null | grep GNU >/dev/null; then
   set -- `$PATCH --version 2> /dev/null`
-  patch_version=$2
+  if test x$1 = xGNU ; then
+    patch_version=$3
+  else
+    patch_version=$2
+  fi
   AC_MSG_RESULT($patch_version)
   saved_IFS=$IFS; IFS='.'
   set -- $patch_version
   IFS=$saved_IFS
   set -- `echo $1 | $TR -cd 0-9` `echo $2 | $TR -cd 0-9`
-  if test 0$1 -lt 2 || test 0$1 -eq 2 -a 0$2 -lt 4 ; then
+  if test 0$1 -lt 2 || test 0$1 -eq 2 -a 0$2 -lt 5 ; then
     patch_version=
   fi
 else
@@ -288,7 +285,7 @@ else
 fi
 if test -z "$patch_version" ; then
   AC_MSG_ERROR([
-$PACKAGE_NAME requires at least version 2.4 of GNU patch. You can download a
+$PACKAGE_NAME requires at least version 2.5 of GNU patch. You can download a
 current version of patch from ftp.gnu.org, or if you already have GNU patch
 then you can supply its path with the '--with-patch=' option.
 ])
@@ -306,6 +303,34 @@ Sorry, you have a version of find which doesn't understand -path.
 $PACKAGE_NAME needs it.  If you have access to a version of find which
 does understand -path, you can supply its path with the
 '--with-find=' option.
+])
+fi
+
+AC_MSG_CHECKING([whether $FIND -print0 works])
+if $FIND . -path '*' -print0 >/dev/null 2>&1; then
+	AC_MSG_RESULT(yes)
+else
+	AC_MSG_RESULT(no)
+	AC_MSG_ERROR([
+Sorry, you have a version of find which doesn't understand -print0.
+$PACKAGE_NAME needs it.  If you have access to a version of find which
+does understand -print0, you can supply its path with the
+'--with-find=' option.
+])
+fi
+
+QUILT_COMPAT_PROG_PATH(XARGS, xargs)
+
+AC_MSG_CHECKING([whether $XARGS -0 works])
+if echo | $XARGS -0 echo >/dev/null 2>&1; then
+	AC_MSG_RESULT(yes)
+else
+	AC_MSG_RESULT(no)
+	AC_MSG_ERROR([
+Sorry, you have a version of xargs which doesn't understand -0.
+$PACKAGE_NAME needs it.  If you have access to a version of xargs which
+does understand -0, you can supply its path with the
+'--with-xargs=' option.
 ])
 fi
 
@@ -376,12 +401,6 @@ if test $USE_NLS = no ; then
 fi
 AC_SUBST(USE_NLS)
 
-dnl Determine where package documentation is supposed to go
-if test -n "$RPM_DOC_DIR" ; then
-    docdir="$RPM_DOC_DIR"
-else
-    docdir='$(datadir)/doc'
-fi
 AC_SUBST(docdir)
 
 dnl Check for rpmbuild (v4) vs. rpm (v3)
@@ -398,12 +417,6 @@ AC_MSG_RESULT([])
 AC_MSG_RESULT([$PACKAGE_NAME version $PACKAGE_VERSION configured.])
 AC_MSG_RESULT([])
 AC_MSG_RESULT([Using '$prefix' for installation prefix.])
-
-# we don't need to see this just for the backup-files command
-# but we may as well spec it for the future
-#AC_MSG_RESULT([Using '$CC' for C compiler.])
-#AC_MSG_RESULT([Building with '$CFLAGS' for C compiler flags.])
-#AC_MSG_RESULT([Building with '$LIBS' for linker flags.])
 
 AC_MSG_RESULT([])
 AC_MSG_RESULT([Report bugs to $PACKAGE_BUGREPORT])

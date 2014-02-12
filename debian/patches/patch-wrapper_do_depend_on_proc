@@ -6,11 +6,9 @@ fails to understand all options.
  bin/patch-wrapper.in |    4 ++++
  1 file changed, 4 insertions(+)
 
-Index: b/bin/patch-wrapper.in
-===================================================================
 --- a/bin/patch-wrapper.in
 +++ b/bin/patch-wrapper.in
-@@ -171,6 +171,10 @@
+@@ -171,6 +171,10 @@ then
      if [ -n "$opt_input" ]
      then
  	patch=$opt_input

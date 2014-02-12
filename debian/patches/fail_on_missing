@@ -9,11 +9,9 @@ Upstream status: they asked for some cleanups, which are done. To be submitted.
  test/missing.test |    4 ++++
  2 files changed, 11 insertions(+)
 
-Index: b/quilt/push.in
-===================================================================
 --- a/quilt/push.in
 +++ b/quilt/push.in
-@@ -179,6 +179,13 @@
+@@ -184,6 +184,13 @@ add_patch()
  		no_reject_files="-r $tmp"
  	fi
  
@@ -27,11 +25,9 @@ Index: b/quilt/push.in
  	apply_patch $patch "$patch_file"
  	status=$?
  	trap "" SIGINT
-Index: b/test/missing.test
-===================================================================
 --- a/test/missing.test
 +++ b/test/missing.test
-@@ -7,6 +7,10 @@
+@@ -5,6 +5,10 @@
  	< missing2.diff
  	
  	$ quilt push -qa

@@ -1,3 +1,126 @@
+quilt (0.60-2) unstable; urgency=low
+
+  * Fix up previous changelog entry erroneously mentioning UNRELEASED.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Sun, 04 Mar 2012 08:51:56 +0100
+
+quilt (0.60-1) unstable; urgency=low
+
+  * New upstream release.
+  * Drop patch mail-signature, quilt mail --signature has been upstream
+    since 2007.
+  * Drop patch no-signature-test since the test-suite has been fixed to
+    not vary based on the user's signature.
+  * Drop patch arch_all, merged upstream.
+  * Drop patch ensure-manpage-has-correct-patches-dir, merged upstream.
+  * Drop patch override_mail_sender_in_testsuite, merged upstream.
+  * Drop patch mail-from-locale, similar fix merged upstream.
+  * Drop patch unset_posix_strict_conformance_variables, merged upstream.
+  * Refresh all patches.
+  * Update Standards-Version to 3.9.3 (no change).
+  * Update Vcs-Browser URL due to Alioth changes.
+  * Switch to debhelper compatibility level 9.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Sat, 03 Mar 2012 22:41:23 +0100
+
+quilt (0.51-1) unstable; urgency=low
+
+  * New upstream release.
+    - Fixes the unwanted output in quilt completion. Closes: #553511
+  * Drop patch backport-fixes-from-0.50, merged upstream.
+  * Drop patch fix-manpage-generation, merged upstream.
+  * Drop patch debianize, instead pass --with-docdir=/usr/share/doc/quilt to
+    ./configure (now that upstream supports this option) and ensure quilt.pdf
+    is not compressed.
+  * Drop unused patch no-QUILT_LIB-in-quilt.
+  * New patch ensure-manpage-has-correct-patches-dir to fix the default
+    patches directory documented in quilt(1). Closes: #585438
+    Thanks to  Julien Viard de Galbert for the patch.
+  * Drop patch makefile_glitche, no longer required because the
+    upstream build process no longer use sub-make calls to generate the
+    reference documentation.
+  * Refresh all other patches.
+  * Improve the template for the DEP-3 headers.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Thu, 02 Feb 2012 10:46:59 +0100
+
+quilt (0.50-2) unstable; urgency=low
+
+  [ Raphaël Hertzog ]
+  * Recommends "default-mta | mail-transport-agent" instead of plain
+    mail-transport-agent. Closes: #652734
+  * Change the above Recommends into a Suggests. Closes: #652912
+  * Drop entirely debian/patches/testsuite_cleanups since it's no longer
+    needed.
+  * Integrate 2 small regression fixes from upstream in
+    debian/patches/backport-fixes-from-0.50, we could have waited 0.51
+    for Debian but this offers a chance to get them in Ubuntu's LTS 12.04.
+
+  [ Martin Quinson ]
+  * quilt/header: Add a --dep3 option to include a DEP-3 template
+    (Closes: #543355; thanks to Didier Raboud for the report and the
+     patch; sorry for the delay)    
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 09 Jan 2012 15:25:47 +0100
+
+quilt (0.50-1) unstable; urgency=low
+
+  [ Martin Quinson ]
+  * Drop patch po-fix-msguniq which added an invocation to msguniq to
+    the po files regeneration. Nothing similar is done in the packages
+    I checked, and msgmerge seem to be reasonable nowadays.
+  * add configure option --with-awk=/usr/bin/awk to avoid that
+    configure finds locally installed gawk (don't explicit dependent
+    on awk since it's essential)                          Closes: #637014
+  * Add Recommends: mail-transport-agent since it's mandatory to get
+    the mail command working                              Closes: #587941
+  * Add the shell subcommand to the bash completion list. Closes: #578925  
+
+  [ Raphaël Hertzog ]
+  * New upstream release.
+  * Drop a few patches merged upstream:
+    - debian/patches/create_db_on_snapshot
+    - debian/patches/doc_improvement
+    - debian/patches/mailname
+    - debian/patches/test-suite-update-for-patch-2.6
+    - debian/patches/backport-remember-locations
+    - debian/patches/skip-non-files-for-series
+  * Refresh all other patches.
+  * Disable patch debian/patches/testsuite_cleanups as it creates more
+    problems than it seems to solve.
+  * Drop lintian override file, the only override needed has been fixed
+    upstream (by dropping the useless shebang).
+  * Add missing ${perl:Depends} to the Depends field.
+  * Switch to debhelper compat level 8.
+  * Switch away from CDBS to dh.
+  * Ensure we can build twice in a row by resetting properly the
+    regenerated po/*.{po,pot} files.
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Tue, 20 Dec 2011 11:32:02 +0100
+
+quilt (0.48-8) unstable; urgency=low
+
+  [ Raphaël Hertzog ]
+  * Update arch_all patch to integrate fixes prepared by Jean Delvare.
+  * Refresh all other patches to apply cleanly.
+  * Update documentation of dh_quilt_{,un}patch to use the
+    correct dh command-line syntax (thanks to Michael Ole Olsen for the
+    report!) and add a note saying that those tools are useless with the "3.0
+    (quilt)" source format.
+  * Add "Multi-Arch: foreign" so that packages of foreign architectures can
+    depend on quilt. Closes: #640784
+  * Update Standards-Version to 3.9.2 (no changes required).
+  * Update lintian override to match the new output.
+
+  [ Martin Quinson ]
+  * Documentation update (man and pdf versions): patch dropped support
+    for the option --unified-reject-files, so stop advising its use.
+    (Closes: #616647)
+  * Depend on bsdmainutils to get the column utility, which is used to
+    show the available commands when none is provided (Closes: #627769) 
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Mon, 12 Sep 2011 15:49:00 +0200
+
 quilt (0.48-7) unstable; urgency=low
 
   * Extend debian/patches/fix-manpage-generation to also remove the $''

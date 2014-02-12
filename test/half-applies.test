@@ -1,6 +1,4 @@
-$ rm -rf d
-$ mkdir -p d/patches
-$ cd d
+$ mkdir patches
 
 $ echo foo > foo.orig
 $ echo foo2 > foo
@@ -13,23 +11,23 @@ $ mv bar.orig bar
 $ echo foorab.diff -p0 > patches/series
 $ quilt push
 > Applying patch patches/foorab.diff
-> patching file foo
-> patching file bar
+>~ patching file `?foo'?
+>~ patching file `?bar'?
 > Hunk #1 FAILED at 1.
-> 1 out of 1 hunk FAILED -- rejects in file bar
+>~ 1 out of 1 hunk FAILED -- rejects in file `?bar'?
 > Patch patches/foorab.diff does not apply (enforce with -f)
 
 $ quilt push
 > Applying patch patches/foorab.diff
-> patching file foo
-> patching file bar
+>~ patching file `?foo'?
+>~ patching file `?bar'?
 > Hunk #1 FAILED at 1.
-> 1 out of 1 hunk FAILED -- rejects in file bar
+>~ 1 out of 1 hunk FAILED -- rejects in file `?bar'?
 > Patch patches/foorab.diff does not apply (enforce with -f)
 
 $ quilt push -qf
 > Applying patch patches/foorab.diff
-> 1 out of 1 hunk FAILED -- saving rejects to file bar.rej
+>~ 1 out of 1 hunk FAILED( -- saving rejects to( file)? bar.rej)?
 > Applied patch patches/foorab.diff (forced; needs refresh)
 
 $ quilt diff
@@ -40,5 +38,3 @@ $ quilt diff
 > @@ -1 +1 @@
 > -foo
 > +foo2
-$ cd ..
-$ rm -rf d

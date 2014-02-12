@@ -23,9 +23,10 @@ usage()
 	if [ x$1 = x-h ]
 	then
 		printf $"
-Revert the changes to the topmost or named patch for the specified file(s).
-Changes to files that are modified by patches on top of the specified patch
-cannot be reverted.
+Revert uncommitted changes to the topmost or named patch for the specified
+file(s): after the revert, 'quilt diff -z' will show no differences for those
+files. Changes to files that are modified by patches on top of the specified
+patch cannot be reverted.
 
 -P patch
 	Revert changes in the named patch.
@@ -89,7 +90,7 @@ done
 [ $status -eq 0 ] || exit $status
 
 workdir=$(gen_tempfile -d $PWD)
-trap "rm -rf $workdir" EXIT
+add_exit_handler "rm -rf $workdir"
 apply_patch_temporarily $workdir $patch "${@/#/$SUBDIR}" || exit 1
 
 for file in ${*/#/$SUBDIR}
@@ -104,7 +105,6 @@ do
 		fi
 
 		mkdir -p "$(dirname "$file")"
-		ln -f "$workdir/$file" "$file" 2>&1 ||
 		cp -p "$workdir/$file" "$file"
 	else
 		if [ ! -e "$file" ]
