@@ -6,9 +6,9 @@ Name:		quilt
 Summary:	Scripts for working with series of patches
 License:	GPL
 Group:		Productivity/Text/Utilities
-Version:	0.48
+Version:	0.60
 Release:	1
-Requires:	coreutils diffutils patch gzip bzip2 perl mktemp gettext
+Requires:	coreutils diffutils findutils patch gzip bzip2 perl mktemp gettext
 Autoreqprov:	off
 Source:		quilt-%{version}.tar.gz
 BuildRoot:	%{_tmppath}/%{name}-%{version}-build
@@ -19,7 +19,7 @@ track of the changes each patch makes. Patches can be
 applied, un-applied, refreshed, etc.
 
 The scripts are heavily based on Andrew Morton's patch scripts
-found at http://www.zip.com.au/~akpm/linux/patches/.
+found at http://userweb.kernel.org/~akpm/stuff/patch-scripts.tar.gz.
 
 Authors:
 --------
@@ -31,7 +31,7 @@ Authors:
 
 %build
 CFLAGS="$RPM_OPT_FLAGS" ./configure --mandir=%_mandir
-make prefix=/usr BUILD_ROOT=$RPM_BUILD_ROOT RELEASE=%release
+make prefix=/usr RELEASE=%release
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -47,7 +47,6 @@ rm -rf $RPM_BUILD_ROOT
 /usr/bin/quilt
 /usr/share/quilt/
 /usr/share/emacs/
-/usr/lib/quilt/
 /etc/bash_completion.d/quilt
 %config(noreplace) /etc/quilt.quiltrc
 %doc %{_mandir}/man1/guards.1*
@@ -57,6 +56,334 @@ rm -rf $RPM_BUILD_ROOT
 %doc %{_docdir}/%{name}-%{version}/quilt.pdf
 
 %changelog
+* Wed Feb 29 2012 - jdelvare@suse.de
+- configure*: Bump version to 0.60 "Happy Birthday Lina".
+* Wed Feb 29 2012 - jdelvare@suse.de
+- fr.po: Update French translation.
+* Wed Feb 29 2012 - jdelvare@suse.de
+- Ensure quilt(1) documents the correct patches directory.
+- Unset POSIXLY_CORRECT to ensure that patch works
+  non-interactively.
+* Wed Feb 29 2012 - jdelvare@suse.de
+- mail: Skip additional recipients with "bad" email addresses
+- edmail: Allow to add "good" recipient addresses while skipping
+  "bad" ones
+- mail: Fix wrong use of edmail
+- mail: Require a "reasonable looking" email address in patch
+  headers
+- mail: Don't use localized date format in From lines
+- mail: Improve error reporting (requires bash 3.0)
+* Wed Feb 22 2012 - jdelvare@suse.de
+- doc/main.tex, new: Document the patch grouping feature. This
+  fixes bug #12428.
+* Fri Feb 17 2012 - jdelvare@suse.de
+- setup.test: Increase coverage. Test for reverted patches, patches
+  without options in the series file, as well as spaces in
+  directory names.
+* Fri Feb 17 2012 - jdelvare@suse.de
+- setup, scripts/inspect: Properly escape spaces in directory and
+  archive names (bug #25579).
+* Wed Feb 01 2012 - jdelvare@suse.de
+- Makefile.in: Let "make clean" delete generated source tarballs.
+* Wed Feb 01 2012 - jdelvare@suse.de
+- grep: Accept file names with spaces.
+* Wed Feb 01 2012 - jdelvare@suse.de
+- Makefile.in: Include utilfns when generating source tarball.
+* Wed Feb 01 2012 - jdelvare@suse.de
+- backup-files: 32 performance improvements, developed during Suse
+  Hack Week VI (February 2010.) This speeds up backup-files by a
+  factor 50, roughly, bringing it close enough to the original C
+  implementation. Many thanks to Raphael Hertzog for reviewing
+  most of the series.
+* Wed Feb 01 2012 - jdelvare@suse.de
+- Finally get rid of the old C implementation of backup-files,
+  together with all the related checks in configure and variables
+  in Makefile.
+* Wed Feb 01 2012 - jdelvare@suse.de
+- backup-files: Avoid relying on GNU-specific extensions of stat,
+  cp and rmdir. Otherwise it fails on BSD systems and probably
+  others.
+* Wed Feb 01 2012 - mquinson@debian.org
+- Make backup-files a shell script. This makes it possible to
+  package quilt as an architecture-indepdendent package.
+* Wed Feb 01 2012 - jdelvare@suse.de
+- Add a dedicated test case for backup-files.
+* Tue Jan 31 2012 - jdelvare@suse.de
+- import.in, scripts/patchfns.in: Fix import of patches from a
+  subdirectory (bug #35244).
+* Sat Jan 28 2012 - jdelvare@suse.de
+- configure*: Bump version to 0.51.
+* Sat Jan 28 2012 - jdelvare@suse.de
+- Remove parse-patch which is no longer used. Based on a
+  preliminary patch by Yasushi SHOJI.
+  None of quilt code uses parse-patch anymore.  The last one, it seems,
+  was contrib/import.diff, which was removed at 2f9728a9.  So, just
+  remove it.
+* Mon Jan 23 2012 - jdelvare@suse.de
+- scripts/inspect.in: Leave stderr free for actual error reporting.
+- scripts/inspect.in: Complain if wrapper script can't be executed.
+* Mon Jan 23 2012 - mquinson@debian.org
+- bash_completion: silence the errors of "quilt unapplied" in the
+  completion of quilt push, as we did previously on other scripts.
+* Tue Jan 10 2012 - jdelvare@suse.de
+- Makefile.in: No need to delete doc/quilt.1 twice on "make clean".
+- Makefile.in: Silent the generation of the quilt manual page, for
+  consistency.
+- Makefile.in: Store the quilt command reference once generated.
+  This avoids generating it twice, once for README and once for
+  quilt.1.
+* Mon Jan 09 2012 - mquinson@debian.org
+- Makefile.in: 
+  - revert the change to fix the generation of quilt.1 with dash
+    It induced relying on GNU sed, which introduce severe portability
+    issues as BSD and Mac OSX versions of sed (at least) cannot deal
+    with 
+ by themselves.
+  - Force it to use SHELL = @BASH@ to ensure that it works when dash
+    is the default shell (bash is installed anyway since our scripts
+    use it)
+* Mon Jan 02 2012 - mquinson@debian.org
+- Makefile.in: Fix auto-generation of quilt.1 to work with dash
+- quilt/new: add a check that QUILT_PATCHES != QUILT_PC.
+  Rational: If QUILT_PATCHES and QUILT_PC are set to the same directory,
+   the awk script in filenames_in_patch (in scripts/patchfns) will
+   break with a '<patchname> is a directory' error. 
+  Patch provided by anonymous in #30956 on savannah
+* Fri Dec 16 2011 - jdelvare@suse.de
+- Makefile.in: Really skip setting execute bit on scripts/patchfns.
+* Fri Dec 16 2011 - jdelvare@suse.de
+- configure*, Makefile.in: Use the standard docdir definition, so
+  that it can be easily changed from the command line.
+* Thu Dec 15 2011 - jdelvare@suse.de
+- scripts/inspect.in: Don't let TMPDIR take over /var/tmp.
+* Thu Dec 15 2011 - jdelvare@suse.de
+- scripts/inspect.in: Fix quilt setup. A file name of "-" means
+  "read from stdin" for tar.
+* Thu Dec 08 2011 - jdelvare@suse.de
+- scripts/inspect.in: Consistently use ${TMPDIR:-...} when testing
+  if TMPDIR is set.
+* Thu Dec 08 2011 - jdelvare@suse.de
+- configure*: Honor $TMPDIR if set.
+* Tue Dec 06 2011 - jdelvare@suse.de
+- Makefile.in, doc/quilt.1.in: Substitute documentation directory
+  name in path to PDF documentation.
+* Mon Dec 05 2011 - jdelvare@suse.de
+- configure*: Bump version to 0.50.
+* Mon Dec 05 2011 - jdelvare@suse.de
+- po/*: Synchronize language files.
+- po/fr.po: French translation update.
+- po/de.po: Partial German translation update.
+* Mon Nov 14 2011 - jdelvare@suse.de
+- scripts/inspect.in: Fix decompression of tar archives.
+* Thu Nov 10 2011 - jdelvare@suse.de
+- scripts/inspect.in: Old versions of file don't know about
+  xz-compressed files, so recognize them by their filename too.
+* Thu Nov 10 2011 - pth@suse.de
+- quilt/inspect.in: Newer file changed the output for xz compressed
+  data so adapt to it.
+* Wed Oct 05 2011 - ohering@suse.de
+- quilt/inspect.in: Quote strings to avoid flood of shell syntax
+  errors during quilt setup -v *.spec.
+* Sun Sep 25 2011 - mquinson@debian.org
+- po/ru.po: incorporate the russian translation contributed by Sergey
+  Basalaev as savannah bug report #34340 (thanks for your work!)
+* Mon Apr 04 2011 - jdelvare@suse.de
+- test/no-file-to-patch.test: New test case for patches attempting
+  to modify files which do not exist.
+* Fri Mar 25 2011 - jdelvare@suse.de
+- configure.ac: Fix test for GNU patch version.
+* Fri Mar 25 2011 - jdelvare@suse.de
+- quilt/diff.in, quilt/refresh.in: Accept file names with spaces.
+* Fri Mar 18 2011 - jdelvare@suse.de
+-  test/run: Enforce single variable substitution method. There is
+   no need to have two ways to access environment variables from
+   test cases, one is enough.
+* Fri Mar 18 2011 - jdelvare@suse.de
+- Makefile.in: Fix i18n of quilt/scripts/patchfns, broken by
+  previous commit.
+* Wed Mar 16 2011 - jdelvare@suse.de
+- quilt/scripts/patchfns.in: Drop #! stament. patchfns is meant to
+  be sourced from other scripts, rather than executed on its own.
+* Wed Mar 16 2011 - jdelvare@suse.de
+- quilt/diff.in: If diffing against snapshot, ensure that snapshot
+  is actually present. If not, bail out with an error message.
+* Tue Mar 15 2011 - jdelvare@suse.de
+- compat/getopt.in: Add support of options with optional
+  parameters. Both short and long options are supported. This is
+  required to pass the test suite, if nothing else.
+* Tue Mar 15 2011 - jdelvare@suse.de
+- compat/getopt.in: Fix quoting and spacing. This way the output
+  matches exactly the output of getopt from util-linux, and spaces
+  and other special characters in filenames are properly supported.
+* Sat Mar 12 2011 - jdelvare@suse.de
+- quilt/grep.in: Not all implementations of find default to the
+  current directory as the search root. So explicitly set the root
+  to "." if the user didn't provide one.
+* Wed Mar 09 2011 - jdelvare@suse.de
+- quilt.spec.in: BUILD_ROOT is only needed at installation time,
+  not at build time.
+* Mon Mar 07 2011 - jdelvare@suse.de
+- test/example1.test, test/two.test, test/three.test: Let the test
+  suite cover "quilt grep".
+* Sat Mar 05 2011 - jdelvare@suse.de
+- quilt/pop.in: Add missing local variable declaration.
+* Wed Mar 02 2011 - jdelvare@suse.de
+- compat/mktemp.in: Properly support white space in file names.
+* Sun Feb 06 2011 - jdelvare@suse.de
+- quilt/mail.in: Fix a temporary directory leak.
+* Sun Feb 06 2011 - jdelvare@suse.de
+- Makefile.in: Don't build quilt.spec by default, it's only needed
+  for packaging purposes.
+* Sun Feb 06 2011 - jdelvare@suse.de
+- quilt.spec.in: List findutils as a requirement (for find and
+  xargs.)
+- configure.ac: Check for the presence of xargs.
+* Sun Feb 06 2011 - yashi@atmark-techno.com
+- po/ja.po: Update Japanese translation.
+* Tue Feb 01 2011 - jdelvare@suse.de
+- po/quilt.pot, po/fr.po: Update French translation.
+* Fri Jan 28 2011 - jdelvare@suse.de
+- test/nolink.test: Add missing check, to make sure we won't miss a
+  bug.
+* Tue Nov 02 2010 - jdelvare@suse.de
+- Add bash completion for revert command.
+* Mon Jun 28 2010 - jdelvare@suse.de
+- No longer ship quilt.spec, it can easily be regerated from
+  quilt.spec.in.
+* Wed Jun 23 2010 - jdelvare@suse.de
+- doc/main-rus.tex, quilt.spec.in: Update the remaining outdated
+  links to Andrew Morton's stuff.
+* Wed Jun 23 2010 - jdelvare@suse.de
+- configure.ac: Properly detect newer versions of GNU patch.
+* Wed Jun 23 2010 - jdelvare@suse.de
+- quilt/scripts/inspect.in: Handle reversed patches in spec files.
+* Wed Jun 23 2010 - jdelvare@suse.de
+- quilt/setup.in, quilt/scripts/inspect.in: Add a --fuzz parameter
+  to quilt setup and inspect.
+* Sun Feb 14 2010 - agruen@suse.de
+- doc/main-rus.tex: Add a Russian translation of the quilt paper
+  by Ivan Borzenkov <ivan1986@list.ru>.
+* Wed Jan 27 2010 - dapal@debian.org
+- quilt/scripts/patchfns.in: Differentiate output when
+  $QUILT_PATCHES/series is not found from when
+  $QUILT_PATCHES/series is empty.
+- test/*.test: Update accordingly.
+* Wed Jan 27 2010 - jdelvare@suse.de
+- configure.ac: Stop testing for cp -l. Bug reported by Olivier
+  Mengué.
+* Wed Jan 27 2010 - bert.wesarg@googlemail.com
+- quilt/push.in: patch's --merge option has an optional argument
+  now.
+* Wed Jan 27 2010 - hertzog@debian.org
+- quilt/scripts/patchfns.in: Skip non-files when selecting the
+  SERIES file.
+* Sat Jan 23 2010 - jdelvare@suse.de
+- test/run, test/*.test: Separate working directory for each test
+  case.
+- Makefile.in, test/run: Let the test suite be run in parallel.
+* Sat Jan 23 2010 - hertzog@debian.org
+- quilt/scripts/patchfns.in: Remember QUILT_PATCHES and
+  QUILT_SERIES by storing them in .pc.
+- doc/main.tex: Document this change.
+- test/remember-locations.test: Add non-regression test to verify
+  that quilt remembers QUILT_PATCHES/QUILT_SERIES.
+* Wed Jan 06 2010 - jdelvare@suse.de
+- quilt.spec, doc/main.tex: Update URI of Andrew Morton's patch
+  scripts. Reported by Randy Dunlap.
+* Sat Dec 19 2009 - bert.wesarg@googlemail.com
+- quilt/scripts/patchfns.in: Fix pager on broken pipe.
+* Sat Dec 12 2009 - jdelvare@suse.de
+- quilt/scripts/patchfns.in (diff_file): Swap options and
+  parameters for better portability.
+* Fri Nov 27 2009 - jdelvare@suse.de
+- Some (possibly all) versions of "file" do not recognize lzma-
+  compressed files. Rely on the file name for these.
+* Fri Nov 27 2009 - jdelvare@suse.de
+- Fix support of lzma- or xz-compressed files:
+  * Let xz handle lzma compatibility externally, with links.
+    Otherwise lzma support will not work for users with only lzma
+    installed and not xz.
+  * "upgrade" doesn't need to care about lzma nor xz, these
+    compression formats were not supported back in v1.
+  * Fix cat_to_new_file() for lzma/xz files..
+  * Use a different letter for lzma and xz files in inspect.
+* Wed Nov 25 2009 - agruen@suse.de
+- quilt.quiltrc: make sure to only override QUILT_PAGER if
+  QUILT_PAGER isn't set already.
+* Wed Nov 25 2009 - agruen@suse.de
+- inspect: Try to better recognize "patch -d" and "tar -C" (which
+  both change the working directory).  (This may fail in some other
+  cases now -- there are still a lot of heuristics involved here.)
+* Wed Nov 25 2009 - agruen@suse.de
+- inspect: When guessing the tarball filename, make sure that only
+  regular files are considered. (Otherwise, we will trip over
+  command lines like "tar xjCf dir file").
+* Wed Nov 25 2009 - agruen@suse.de
+- new command: Add -p ... option (equivalent to diff -p ...).
+  (Based on a patch from Egbert Eich <eich@freedesktop.org>.)
+* Wed Nov 25 2009 - agruen@suse.de
+- Make sure the series file is a regular file (or a symlink to a
+  regular file).  Reported by Raphael Hertzog <hertzog@debian.org>.
+* Wed Nov 25 2009 - bert.wesarg@googlemail.com
+- push: update color matcher for failed merge
+* Sun Nov 22 2009 - agruen@suse.de
+- No longer create backup files of new files with file mode 0.
+  (This has been changed in GNU patch 2.6 as well.)
+* Fri Nov 20 2009 - agruen@suse.de
+- Add pagination support (code based on topgit; patch from Bert
+  Wesarg <bert.wesarg@googlemail.com>).
+- When QUILT_PAGER is set to an empty value, do not paginate.
+- Document QUILT_PAGER in the man page.
+- Clean things up a little.
+- Add a workaround in quilt.quiltrc for color output when $LESS
+  is defined.
+* Fri Nov 20 2009 - pth@novell.com
+- Enable quilt to handle compressed tarballs and patches that were
+  compressed with lzma or xz.
+* Thu Nov 05 2009 - agruen@suse.de
+- patches command: Commit 2e581933a introduced a bug in scanning
+  unapplied patches which lead to missed matches.
+- patches command: Prevent false matches in unapplied patches
+  for patches which delete files.
+- patches command: Also match deleted files in unapplied patches,
+  at the cost of more possible false matches.
+* Wed Nov 04 2009 - agruen@suse.de
+- Fix typo in doc/quilt.1.in.
+* Mon Nov 02 2009 - agruen@suse.de
+- Implement -r / --reference option in compat/date (patch from
+  Olivier Mehani <shtrom-savanah@ssji.net>).
+* Thu Sep 17 2009 - agruen@suse.de
+- Restore the "remove" command which a few people were missing
+  since its replacement by "revert" in April 2007. (Patch from
+  Pedro Alves.)
+* Wed Sep 09 2009 - agruen@suse.de
+- French translation update from from
+  Jean Delvare <jdelvare@suse.de>.
+* Wed Jun 17 2009 - agruen@suse.de
+- No longer use $0 in gen_tempfile.
+* Wed Jun 17 2009 - agruen@suse.de
+- Prevent "quilt revert" from accidentally creating hard links
+  (bug #25305; fix from Jean Delvare <jdelvare@suse.de>).
+- Try to clarify the help text of "quilt revert".
+* Mon Jun 15 2009 - agruen@suse.de
+- Some filesystems / operating systems may miss files in readdir()
+  loops when the directory is modified at the same time (e.g.,
+  http://support.apple.com/kb/TA21420). Avoid running into this
+  problem in backup-files.c by reading all files before processing
+  them.
+* Sun Apr 05 2009 - agruen@suse.de
+- Push command: don't imply --force when --merge is given so that
+  a patch that doesn't merge cleanly will still require to
+  spcify --force separately.  Update merge syntax highlighting.
+* Tue Mar 31 2009 - agruen@suse.de
+- Rename push's -M option to -m.
+* Sun Mar 08 2009 - agruen@suse.de
+- series and patches commands: add --color options for colorizing
+  the output.
+* Sun Feb 01 2009 - agruen@suse.de
+- push command: Add --fuzz=N option. Add experimental --merge
+  option. Fail pushes when GNU patch exits with a status > 1.
+  Some cleanups.
 * Sat Nov 29 2008 - agruen@suse.de
 - quilt setup: Define %__tar and %__patch to refer to the tar and
   patch wrapper. (Patch from Jan Kratochvil, Savannah bug 24964).

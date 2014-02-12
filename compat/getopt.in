@@ -28,8 +28,8 @@ foreach my $arg (@ARGV) {
 
 # there is no reason to parse
 # the opts if there are no args.
-if (! length(@words)) {
-	print ' -- ';
+if (!@words) {
+	print " --\n";
 	exit;
 }
 
@@ -49,22 +49,29 @@ if ($opts =~ /^\s*(?:-q\s+)?-o ([a-zA-Z:]*)?(\s+--long .*)*/) {
 	}
 }
 
-my @barewords;
+my @barewords = ('--');
 my @options;
 
 # set the previous option name when a param is required
 my $need_param;
 
+sub quote_word
+{
+	my $word = shift;
+	$word =~ s/'/'\\''/;
+	return "'$word'";
+}
+
 foreach my $word (@words) {
 
 	# allow '-' to be an option value
 	if (!$need_param && $word !~ /^-./) {
-		push @barewords, $word;
+		push @barewords, quote_word($word);
 		next;
 	}
 	if ($need_param) {
 		die "expecting param for $need_param" if $word =~ /^-./;
-		push @options, '"'.$word.'"';
+		push @options, quote_word($word);
 		$need_param = undef;
 		next;
 	}
@@ -76,6 +83,20 @@ foreach my $word (@words) {
 			my $found = grep(/$letter/, $short_opts);
 			push @options, '-'.$letter;
 			die "illegal option: $letter" if !$found;
+
+			# handle options with optional parameters
+			if (grep(/${letter}::/, $short_opts)) {
+				if (scalar(@letters) == 0) {
+					push @options, quote_word('');
+				} else {
+					# what looked like more short options
+					# are in fact the optional parameters
+					push @options, quote_word(join('', reverse @letters));
+				}
+				last;
+			}
+
+			# handle options with mandatory parameters
 			if (grep(/$letter:/, $short_opts)) {
 				if (scalar(@letters) == 0) {
 					$need_param = $letter;
@@ -88,7 +109,7 @@ foreach my $word (@words) {
 					while (scalar(@letters) && ($letters[$#letters] =~ /[0-9]/)) {
 						push @digits, pop @letters;
 					}
-					push @options, join('',reverse @digits);
+					push @options, quote_word(join('', reverse @digits));
 				}
 			}
 		}
@@ -100,15 +121,15 @@ foreach my $word (@words) {
 			$word = $1;
 			$param = $2;
 		}
-		my ($found) = grep(/^$word:?$/,@long_opts);
+		my ($found) = grep(/^$word:{0,2}$/,@long_opts);
 		die "illegal option: $word" if !$found;
 		die "$word: unexpected paramater $param" if $found !~ /:$/ && $param ne '';
 
-		$need_param = $word if $found =~ /:$/ && $param eq '';
+		$need_param = $word if $found =~ /[^:]:$/ && $param eq '';
 		push @options, "--$word";
-		push @options, '"'."$param".'"' if $param;
+		push @options, quote_word($param) if $param || $found =~ /::$/;
 	}
 }
 
-print "@options -- @barewords"
+print " @options @barewords\n"
 

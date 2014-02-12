@@ -6,15 +6,19 @@
 #
 #  See the COPYING and AUTHORS files for more details.
 
+# unset posix strict conformance variable since patch cannot be run
+# non-interactively when it's set.
+unset POSIXLY_CORRECT
+
 export TEXTDOMAIN=quilt
 export TEXTDOMAINDIR=@LOCALEDIR@
 
-: ${QUILT_DIR=@QUILT_DIR@} ${QUILT_LIB=@QUILT_LIB@}
-export QUILT_DIR QUILT_LIB
+: ${QUILT_DIR=@QUILT_DIR@}
+export QUILT_DIR
 
 if [ -z "$QUILTRC" ]
 then
-	for QUILTRC in $HOME/.quiltrc /etc/quilt.quiltrc; do
+	for QUILTRC in $HOME/.quiltrc @ETCDIR@/quilt.quiltrc; do
 		[ -e $QUILTRC ] && break
 	done
 	export QUILTRC
@@ -45,7 +49,7 @@ Global options:
 
 --quiltrc file
 	Use the specified configuration file instead of ~/.quiltrc (or
-	/etc/quilt.quiltrc if ~/.quiltrc does not exist).  See the pdf
+	@ETCDIR@/quilt.quiltrc if ~/.quiltrc does not exist).  See the pdf
 	documentation for details about its possible contents.  The
 	special value \"-\" causes quilt not to read any configuration
 	file.

@@ -175,7 +175,9 @@ The remainder of this document discusses the script collection
 
 With quilt, all work occurs within a single directory tree. Since
 version 0.30, commands can be invoked from anywhere within the source
-tree.  Commands are of the form ``\quilt{cmd}'', similar to CVS
+tree (the directory tree is scanned upwards until either the
+\textsf{.pc} or the \textsf{patches} directory is found).
+Commands are of the form ``\quilt{cmd}'', similar to CVS
 commands. They can be abbreviated as long as the specified part of the
 command is unique. All commands print some help text with ``\quilt{cmd
 -h}''.
@@ -198,8 +200,10 @@ After the refresh, the patch and the working state are the same.
 
 Patch files are located in the \textsf{patches} sub-directory of the
 source tree (see Figure~\ref{fig:dir-layout}). The \textsf{QUILT\_PATCHES}
-environment variable can be used to override this location. The
-\textsf{patches} directory may contain sub-directories.
+environment variable can be used to override this location and quilt
+will remember this location by storing its value in the
+\textsf{.pc/.quilt\_patches} file. The \textsf{patches} directory may contain
+sub-directories, which is useful for grouping related patches together.
 \textsf{patches} may also be a symbolic link instead of a directory.
 
 A file called \textsf{series} contains a list of patch file names that
@@ -576,7 +580,7 @@ patches.\footnote{
 	approach will often result in false positives, the latter
 	approach may result in false negatives (that is, \quilt{graph}
 	may overlook dependencies).
-} The ouput of this command can be visualized using the tools from AT\&T
+} The output of this command can be visualized using the tools from AT\&T
 Research's Graph Visualization Project (GraphViz,
 \url{http://www.graphviz.org/}).  The \quilt{graph} command supports
 different kinds of graphs.
@@ -686,9 +690,10 @@ patch which function a change is in.
 
 \item[\textsf{QUILT\_PATCH\_OPTS}]
 Additional options that quilt shall pass to \prog{GNU patch} when
-applying patches. (For example, some versions of \prog{GNU patch}
-support the ``\textsf{--unified-reject-files}'' option for generating
-reject files in unified diff style.
+applying patches. (For example, recent versions of \prog{GNU patch}
+support the ``\textsf{--reject-format=unified}'' option for generating
+reject files in unified diff style (older versions used
+``\textsf{--unified-reject-files}'' for that).
 
 \item[\textsf{QUILT\_PATCHES}]
 The location of patch files (see Section~\ref{sec:basic}).  This setting
@@ -762,7 +767,7 @@ welcome, of course.
 \bibitem{akpm02}
 Andrew Morton: Patch Management Scripts,
 \url{http://lwn.net/Articles/13518/} and
-\url{http://www.zip.com.au/~akpm/linux/patches/patch-scripts-0.9}.
+\url{http://userweb.kernel.org/~akpm/stuff/patch-scripts.tar.gz}.
 
 \bibitem{quilt}
 Andreas Grünbacher et al.: Patchwork Quilt,
