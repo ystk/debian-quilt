@@ -1,5 +1,3 @@
-(To run, type `./run two.test' in this directory.)
-
 	$ mkdir patches d
 
 	$ quilt new patch1.diff
@@ -61,7 +59,7 @@
 	> +Another line has been added.
 
 	$ cd ..
-	
+
 	$ quilt refresh
 	> Refreshed patch %{_P}patch1.diff
 
@@ -136,13 +134,13 @@
 	>  This is file two.
 	> +Another line added.
 	> Warning: more recent patches modify files in patch %{_P}patch1.diff
-	
+
 	$ quilt refresh patch1
 	> More recent patches modify files in patch %{_P}patch1.diff. Enforce refresh with -f.
-	
+
 	$ quilt refresh -f patch1
 	> Refreshed patch %{_P}patch1.diff
-	
+
 	$ echo "Another line here, too." >> dir/file3
 	$ quilt pop -R
 	> Removing patch %{_P}subdir/patch3.diff
@@ -160,3 +158,26 @@
 	> Removing patch %{_P}patch2.diff
 	> Removing patch %{_P}patch1.diff
 	> No patches applied
+
+	$ quilt patches file4
+	> %{_P}patch1.diff
+	> %{_P}subdir/patch3.diff
+
+	$ quilt push -qa
+	> Applying patch %{_P}patch1.diff
+	> Applying patch %{_P}patch2.diff
+	> Applying patch %{_P}subdir/patch3.diff
+	> Now at patch %{_P}subdir/patch3.diff
+
+	$ quilt patches file4
+	> %{_P}patch1.diff
+	> %{_P}subdir/patch3.diff
+
+	$ quilt pop -q patch2.diff
+	> Removing patch %{_P}subdir/patch3.diff
+	> Now at patch %{_P}patch2.diff
+
+	$ quilt patches -v dir/file3 file4
+	> + %{_P}patch1.diff
+	> = %{_P}patch2.diff
+	>   %{_P}subdir/patch3.diff

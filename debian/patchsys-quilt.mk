@@ -1,10 +1,16 @@
 # -*- mode: makefile; coding: utf-8 -*-
-# Copyright © 2003 Martin Quinson <martin.quinson@tuxfamily.org>
+# Copyright © 2003 Martin Quinson <mquinson@debian.org>
 # Description: An advanced patch system based on the quilt facilities.
 #  please refere to the documentation of the quilt package for more information.
 #
 # Used variables for configuration:
 #  
+
+####
+# If you use autotools.mk, or any other rule/class which uses it,
+# include this file (patchsys-quilt.mk) *after* those.
+####
+
 
 #
 # This program is free software; you can redistribute it and/or

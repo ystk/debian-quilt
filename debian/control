@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 Source: quilt
 Section: vcs
 Priority: optional
@@ -7,7 +5,7 @@ Maintainer: Martin Quinson <mquinson@debian.org>
 Uploaders: Raphaël Hertzog <hertzog@debian.org>, Ryan Niebur <ryanryan52@gmail.com>
 Build-Depends: debhelper (>= 9)
 Build-Depends-Indep: gettext, hevea, lynx, diffstat, perl, procmail, ed
-Standards-Version: 3.9.3
+Standards-Version: 3.9.5
 Vcs-git: git://git.debian.org/git/collab-maint/quilt
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/quilt.git
 Homepage: http://savannah.nongnu.org/projects/quilt
@@ -16,8 +14,9 @@ Homepage: http://savannah.nongnu.org/projects/quilt
 
 Package: quilt
 Architecture: all
-Depends: patch, diffstat, bzip2, gettext, bsdmainutils, ${misc:Depends}, ${perl:Depends}
+Depends: patch (>= 2.6), diffstat, bzip2, gettext, bsdmainutils, ${misc:Depends}, ${perl:Depends}
 Suggests: procmail, graphviz, default-mta | mail-transport-agent
+Recommends: less
 Enhances: debhelper, cdbs
 Multi-Arch: foreign
 Description: Tool to work with series of patches
@@ -38,3 +37,7 @@ Description: Tool to work with series of patches
  allowing maintainers to easily add a quilt-based patch management system in
  their packages. The package also provides some basic support for those not
  using those tools. See README.Debian for more information.
+
+# Local Variables:
+# Coding: utf-8
+# End:

@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([quilt],[0.60],[quilt-dev@nongnu.org])
+AC_INIT([quilt],[0.63],[quilt-dev@nongnu.org])
 AC_CONFIG_AUX_DIR(config)
 AC_PREREQ(2.53)
 AC_REVISION ($Revision: 1.84 $)
@@ -14,7 +14,7 @@ AC_SYS_INTERPRETER
 if test "$interpval" != yes ; then
 	AC_MSG_WARN([no
 
-bash/perl scripts may not be invoked correctly due to problems with your 
+bash/perl scripts may not be invoked correctly due to problems with your
 systems implementation of #! being either broken or non-existant.
 ])
 fi
@@ -366,6 +366,9 @@ will not work correctly until a newer version (>= 1.32) is installed.
 fi
 
 QUILT_COMPAT_PROG_PATH(SENDMAIL, sendmail, [], [/usr/sbin])
+
+QUILT_COMPAT_PROG_PATH(CP, cp, [cp])
+QUILT_COMPAT_PROG_PATH(MD5SUM, md5sum, [gmd5sum md5sum])
 
 AC_PATH_PROG(MSGMERGE, [msgmerge])
 AC_PATH_PROG(MSGFMT, [msgfmt])

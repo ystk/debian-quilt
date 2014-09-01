@@ -22,10 +22,34 @@ then
 	fi
 fi
 
-check_for_existing_files() {
-	local dir status=0
-	for dir in $(awk ' $1 == "patch" { print $2 }' $tmpfile | uniq)
+check_for_existing_directories()
+{
+	local tag dir last_dir arg status=0
+
+	while read tag dir arg
 	do
+		[ "$dir" != "." -a "$dir" != "$last_dir" ] || continue
+
+		if [ -e "$prefix$dir" ]
+		then
+			printf $"Directory %s exists\n" \
+			       "$prefix$dir" >&2
+			status=1
+		fi
+		last_dir=$dir
+	done < $tmpfile
+
+	return $status
+}
+
+check_for_existing_files()
+{
+	local tag dir last_dir arg status=0
+
+	while read tag dir arg
+	do
+		[ "$tag" = "patch" -a "$dir" != "$last_dir" ] || continue
+
 		if [ -e "$prefix$dir/$QUILT_PATCHES" ]
 		then
 			printf $"Directory %s exists\n" \
@@ -38,11 +62,14 @@ check_for_existing_files() {
 			       "$prefix$dir/$QUILT_SERIES" >&2
 			status=1
 		fi
-	done
+		last_dir=$dir
+	done < $tmpfile
+
 	return $status
 }
 
-create_symlink() {
+create_symlink()
+{
 	local target=$1 link=$2 up
 	if [ "${target:0:1}" = / -o "${link:0:1}" = / ]
 	then
@@ -56,7 +83,7 @@ create_symlink() {
 			 -e 's:/[^/]+/\.\.(/|$):\1:g' \
 			 -e 'tagain')" \
 	       "$(echo "$PWD/$link" | \
-	          sed -r -e 's://:/:g' \
+		  sed -r -e 's://:/:g' \
 			 -e ':again' \
 			 -e 's:/[^/]+/\.\.(/|$):\1:g' \
 			 -e 'tagain')"
@@ -167,7 +194,15 @@ case "$1" in
 		"# Source: "*)
 			shift 2
 			source="$@"
-			echo "tar ${tar_dir:-.} ${source// /\\ }"
+			filetype="$(file -b "$source")"
+			case "$filetype" in
+			Zip*)
+				echo "unzip ${tar_dir:-.} ${source// /\\ }"
+				;;
+			*)
+				echo "tar ${tar_dir:-.} ${source// /\\ }"
+				;;
+			esac
 			;;
 		"# Patchdir: "*)
 			shift 2
@@ -183,7 +218,8 @@ case "$1" in
 	;;
 esac
 
-check_for_existing_files || exit 1
+# Make sure that unpacking will not overwrite anything
+check_for_existing_directories || exit 1
 
 while read tag dir arg1 arg2
 do
@@ -200,20 +236,43 @@ do
 		cat_file "$tarball" \
 		| tar xf - -C "$prefix$dir"
 		;;
+	unzip)
+		tarball=$sourcedir$arg1
+		if [ ! -e "$tarball" ]
+		then
+			printf $"File %s not found\n" "$tarball" >&2
+			exit 1
+		fi
+		printf $"Unpacking archive %s\n" "$tarball"
+		mkdir -p "${prefix:-.}" "$prefix$dir"
+		unzip -qqo "$tarball" -d "$prefix$dir"
+		;;
 	esac
 done < $tmpfile
+
+if ! check_for_existing_files
+then
+	echo $"Trying alternative patches and series names..." >&2
+	QUILT_PATCHES=quilt_patches
+	QUILT_SERIES=quilt_series
+	check_for_existing_files || exit 1
+fi
 
 while read tag dir arg1 arg2
 do
 	case "$tag" in
-	tar)
+	tar|unzip)
 		tar_dir="$dir"
 		[ "$tar_dir" = . ] && tar_dir=
 		tar_file="$arg1"
 		;;
 	patch)
-		[ -e "$prefix$dir/$QUILT_PATCHES" ] \
-		|| create_symlink "$sourcedir" "$prefix$dir/$QUILT_PATCHES"
+		if [ ! -e "$prefix$dir/$QUILT_PATCHES" ]
+		then
+			create_symlink "$sourcedir" "$prefix$dir/$QUILT_PATCHES"
+			(cd "$prefix$dir" && create_db)
+		fi
+
 		if [ -n "$series_file" ]
 		then
 			[ -e "$prefix$dir/$QUILT_SERIES" ] \

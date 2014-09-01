@@ -1,3 +1,141 @@
+quilt (0.63-3) unstable; urgency=medium
+
+  * Disable debian/patches/test-completion to avoid a test failure during
+    build. Closes: #751109
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Tue, 17 Jun 2014 09:01:58 +0200
+
+quilt (0.63-2) unstable; urgency=medium
+
+  * d/p/test-completion: new patch to test the bash completion scripts
+  * d/p/graph_depends_on_graphviz: update according to upstream's remarks
+  * d/p/restrict-patch-names: enforces valid patch names at creation
+    (Closes: #640551)
+  * Install the system-wide configuration file, so that the users get
+    sensible default settings, such as color by default (Closes: #702408)
+
+ -- Martin Quinson <mquinson@debian.org>  Sat, 10 May 2014 15:52:33 +0200
+
+quilt (0.63-1) unstable; urgency=medium
+
+  * New upstream release
+    - drop the patches accepted upstream: return2, diff_exit_code,
+      patch-wrapper_do_depend_on_proc, unset_grep_options
+      
+  * Update and simplify our patches to ease their adoption upstream
+    - reorder the patches: put the ones accepted upstream below
+    - drop d/p/select-mail: was not functional, actually, and the
+      patch selection mechanism introduced upstream deprecates this.
+  * d/control: Update to standard version 3.9.5 (no change needed)
+  * d/rules: Add stage1 DEB_BUILD_PROFILE, not building the docs to
+    cut the dependency on lynx and hevea (Closes: #738114)
+
+ -- Martin Quinson <mquinson@debian.org>  Wed, 07 May 2014 23:07:59 +0200
+
+quilt (0.61-1) unstable; urgency=low
+
+  * New upstream release. 
+    - Update our patches against this new release; drop accepted ones:
+      doc_search_of_patches, default_pager_less-R,
+      handling_of_patches_with_column_in_their_name
+    - Rename d/p/fix-test-setup to d/p/setup-dont-read-pc: upstream
+      setup don't work when our .pc directory changes QUILT_PATCHES to 
+      debian/patches. We used to have a little hacky solution, but
+      it's not enough anymore, so make it right.
+
+ -- Martin Quinson <mquinson@debian.org>  Mon, 09 Dec 2013 01:02:14 +0100
+
+quilt (0.60-10) unstable; urgency=low
+
+  * d/p/select-mail: Ease the selection of patches to mail out.
+    (Closes: #481331)   
+    
+    I cannot understand how I managed to not apply this patch in the
+    last five years! Sorry to Johannes Berg that contributed it, and
+    to anyone who missed it...
+
+ -- Martin Quinson <mquinson@debian.org>  Thu, 05 Sep 2013 14:17:25 +0200
+
+quilt (0.60-9) unstable; urgency=low
+
+  * d/p/unset_grep_options: unset GREP_OPTIONS as it often breaks quilt
+    (Closes: #715563)
+  * d/p/diff_exit_code: fail on refresh when diff's retcode is 2 
+    (Closes: #638313)
+
+ -- Martin Quinson <mquinson@debian.org>  Thu, 22 Aug 2013 03:23:59 +0200
+
+quilt (0.60-8) unstable; urgency=low
+
+  * merge patch doc_exit_status into return2, as upstream asked for it
+    before integration
+  * d/p/push_timeskew: updated to properly remove temp files.
+    Thanks to Marc Deslauriers and other Ubuntu dudes for the bug
+    report and patch (Closes: #701929).
+
+ -- Martin Quinson <mquinson@debian.org>  Sun, 03 Mar 2013 18:57:00 +0100
+
+quilt (0.60-7) unstable; urgency=low
+
+  * d/p/push_timeskew: pass -q to quilt pop, restore order is arbitrary.
+    Thanks to Adam Conrad and other ubuntu dudes for the bug report and
+    patch (Closes: #697419). 
+
+ -- Martin Quinson <mquinson@debian.org>  Sat, 05 Jan 2013 12:34:25 +0100
+
+quilt (0.60-6) unstable; urgency=low
+
+  * d/deb3: Reintroduce QUILT_PATCH_OPTS: previous bug report was buggy.
+    We should just depend on patch >= 2.6 to get it working properly.
+    Sorry for letting the buggy fix in, and thanks to Osamu for noticing.
+    Closes: #696858.
+
+ -- Martin Quinson <mquinson@debian.org>  Thu, 03 Jan 2013 18:25:53 +0100
+
+quilt (0.60-5) unstable; urgency=low
+
+  * Update Standards-Version to 3.9.4 (no change)
+  * d/p/push_timeskew: only touch the non-empty files to not create
+    any unwanted files (Closes: #697034).
+
+ -- Martin Quinson <mquinson@debian.org>  Mon, 31 Dec 2012 12:38:38 +0100
+
+quilt (0.60-4) unstable; urgency=low
+
+  * d/p/push_timeskew: when doing a quilt push, ensure that the mtime
+    of all modified files are the same. This should solve some rare
+    timeskew while building the packages (and Closes: #466360).
+  * debian/deb3: Remove QUILT_PATCH_OPTS=--reject-format=unified as it
+    is not accepted by modern patch anymore (Closes: #696858). Ooops.
+  * d/p/handling_of_patches_with_column_in_their_name: Fix the
+    handling of patches with ':' in their name (Closes: #679779).
+    The patch was picked in upstream git.
+
+ -- Martin Quinson <mquinson@debian.org>  Sun, 30 Dec 2012 19:10:36 +0100
+
+quilt (0.60-3) unstable; urgency=low
+
+  * debian/control: specify the encoding to emacs at the file bottom,
+    not the file top (Closes: #689554).
+    This should help clumsy tools that get fooled when the control
+    file begins with an empty paragraph, even if they should not break.
+  * debian/control: Recommends less, as we use it in most commands
+    (probably all but the raw push/pop ones). (LP: #1089601)
+  * Add deb3 script to convert debian source package to new 3.0
+    (quilt) format. Thanks to Osamu Aoki for that (Closes: #581186).
+  * d/p/dep3mail: Allow mail subcommand to get the mail subject
+    from dep3-formated patches, so that I can use it to report
+    the changes done to quilt itself to my own upstream.
+  * d/p/doc_search_of_patches: Document the fact that quilt searches
+    for its `patches' directory in the same way that git searches for
+    its configuration (Closes: #549482).
+  * d/p/doc_exit_status: Document the exit status (Closes: #587001).
+  * d/p/graph_depends_on_graphviz: Provide an informative message on
+    'quilt graph' without graphviz being installed (Closes: #659944).
+  * d/p/default_pager_less-R: Use 'less -R' as default pager (LP: #933617)
+
+ -- Martin Quinson <mquinson@debian.org>  Thu, 27 Dec 2012 17:06:19 +0100
+
 quilt (0.60-2) unstable; urgency=low
 
   * Fix up previous changelog entry erroneously mentioning UNRELEASED.

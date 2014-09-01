@@ -22,21 +22,21 @@ override_dh_auto_build:
 	dh_auto_build
 	# Build a HTML/txt copy of the documentation
 	mkdir -p doc/tmp
+ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
 	cd doc/tmp; LC_ALL=C hevea ../main.tex ; LC_ALL=C hevea ../main.tex; LC_ALL=C hevea ../main.tex
 	perl -pe 'if (/\\sh{.*}/) {s:\\sh{(.*)}:<I>$$1</I>:}'	\
 	     < doc/tmp/main.html > doc/quilt.html
 	LC_ALL=C perl -e '$$/ = undef; $$f=<>; $$f =~ s|<A[^>]*?HREF="[^"]*#[^"]*">(.*?)</A>|$$1|msg; print $$f;' < doc/tmp/main.html > doc/tmp/tmp.html
 	LC_ALL=C lynx doc/tmp/tmp.html -dump > doc/quilt.txt
+else
+	touch doc/quilt.html doc/quilt.txt
+endif
 	rm -rf doc/tmp
 	pod2man -c Debhelper debian/dh_quilt_patch debian/dh_quilt_patch.1
 	pod2man -c Debhelper debian/dh_quilt_unpatch debian/dh_quilt_unpatch.1
 
-override_dh_auto_install:
-	dh_auto_install
-	rm -f debian/quilt/etc/quilt.quiltrc
-
 override_dh_installchangelogs:
-	dh_installchangelogs quilt.changes
+	dh_installchangelogs NEWS
 
 override_dh_compress:
 	# Don't compress the .pdf, it's annoying and brings almost nothing
