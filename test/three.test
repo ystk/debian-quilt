@@ -30,6 +30,8 @@
 
 	$ quilt pop
 	> No patch removed
+	$ echo %{?}
+	> 2
 
 	$ quilt new patch1.diff
 	> Patch %{P}patch1.diff is now on top
@@ -58,6 +60,24 @@
 
 	$ quilt refresh
 	> Refreshed patch %{P}patch2.diff
+
+	# Test diff called with multiple file names
+	$ quilt diff -p0 f g
+	> Index: g
+	> ===================================================================
+	> --- /dev/null
+	> +++ g
+	> @@ -0,0 +1 @@
+	> +g
+
+	# Test that diff strips the "./" prefix
+	$ quilt diff -p0 ./f ./g
+	> Index: g
+	> ===================================================================
+	> --- /dev/null
+	> +++ g
+	> @@ -0,0 +1 @@
+	> +g
 
 	$ quilt pop
 	> Removing patch patches/patch2.diff
@@ -96,6 +116,8 @@
 
 	$ quilt pop
 	> No patch removed
+	$ echo %{?}
+	> 2
 
 	$ quilt applied
 	> No patches applied
@@ -133,6 +155,8 @@
 
 	$ quilt push
 	> File series fully applied, ends at patch patches/patch2.diff
+	$ echo %{?}
+	> 2
 
 	$ quilt diff --combine patch1 -P patch2 -p ab
 	> Index: b/f
@@ -151,7 +175,7 @@
 	$ quilt diff -P patch1 --combine patch2
 	> Patch patches/patch2.diff not applied before patch patches/patch1.diff
 
-	$ echo patch3.diff >> %{P}/series
+	$ echo patch3.diff >> %{P}series
 	$ quilt diff -P patch1 --combine patch3
 	> Patch patches/patch3.diff is not applied
 

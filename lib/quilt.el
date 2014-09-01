@@ -1,30 +1,52 @@
-;;; quilt.el v0.45.3 - a minor mode for working with files in quilt
-;;; http://stakeuchi.sakura.ne.jp/dev/quilt-el
-;;;
-;;; Copyright 2005  Matt Mackall <mpm@selenic.com>
-;;;
-;;; Satoru Takeuchi<nqm08501@nifty.com> took over this package
-;;; from Matt Mackall.
-;;;
-;;; This software may be used and distributed according to the terms
-;;; of the GNU General Public License, incorporated herein by reference.
-;;;
-;;; Usage: add (load "~/quilt.el") to your .emacs file
+;;; quilt.el --- a minor mode for working with files in quilt
+
+;; Copyright 2005-2007  Matt Mackall <mpm@selenic.com>
+;;  Satoru Takeuchi <satoru.takeuchi@gmail.com> took over this package
+;;  from Matt Mackall.
+
+;; Author: Saotru takeuchi <satoru.takeuchi@gmail.com>
+;;
+;; This software may be used and distributed according to the terms
+;; of the GNU General Public License, incorporated herein by reference.
+
+;;; Commentary:
+;;
+
+;;  Add (load "~/quilt.el") to your .emacs file
+
+;;; History:
+;;
+
+;;; Code:
 
 (defun quilt-buffer-file-name-safe ()
+  "Return buffer file name.  If buffer is not associated with any file, return nil."
   (let ((fn buffer-file-name))
     (if (and fn (file-exists-p fn))
 	fn)))
 
 (defun quilt-bottom-p ()
+  "Return t if there is on the bottom of patch stack, return nil if otherwise."
   (if (> (call-process "quilt" nil nil nil "applied") 0) 1))
 
 (defun quilt-patches-directory ()
-  (or (getenv "QUILT_PATCHES")
-      "patches"))
+  "Return the location of patch files."
+  (or (with-current-buffer (generate-new-buffer " *cmd")
+        (shell-command
+         (concat "test -f ~/.quiltrc && . ~/.quiltrc ;"
+                 "echo -n $QUILT_PATCHES")
+         t)
+        (unwind-protect
+            (let ((v (buffer-string)))
+              (if (string= "" (buffer-string))
+                  nil
+                v))
+          (kill-buffer (current-buffer))))
+      (or (getenv "QUILT_PATCHES")
+          "patches")))
 
 (defun quilt-find-dir (fn)
-  "find the top level dir for quilt from fn"
+  "Return the top level dir of quilt from FN."
   (if (or (not fn) (equal fn "/"))
       nil
     (let ((d (file-name-directory fn)))
@@ -33,24 +55,28 @@
 	(quilt-find-dir (directory-file-name d))))))
 
 (defun quilt-dir (&optional fn)
+  "Return the top level dir of quilt from FN.  FN is just a hint and find from other way if FN is nil."
   (quilt-find-dir (if fn fn
 		    (let ((fn2 (quilt-buffer-file-name-safe)))
 		      (if fn2 fn2
-			(expand-file-name default-directory))))))
+			(if default-directory
+			    (expand-file-name default-directory)))))))
 
 (defun quilt-drop-dir (fn)
+  "Return the relative path of FN based on quilt top directory."
   (let ((d (quilt-find-dir fn)))
     (substring fn (length d) (length fn))))
 
 (defun quilt-p (&optional fn)
-  "check if the given file or current buffer is in a quilt tree"
+  "Check if FN is in a quilt tree."
   (if (quilt-dir fn) 't nil))
 
 (defun quilt-save ()
+  "Save all buffers associated with current quilt tree."
   (save-some-buffers nil 'quilt-p))
 
 (defun quilt-owned-p (fn)
-  "check if the current buffer is quilt controlled"
+  "Check if FN is a file which quilt handles."
   (if (not fn)
       nil
     (let ((pd (file-name-nondirectory
@@ -62,71 +88,103 @@
        (quilt-p fn)))))
 
 (defun quilt-cmd (cmd &optional buf)
-  "execute a quilt command at the top of the quilt tree for the given buffer"
+  "Execute CMD, a quilt subcommand, at the top of quilt tree associated with BUF."
   (let ((d default-directory)
 	 (qd (quilt-dir)))
     (if (not qd)
 	(shell-command (concat "quilt " cmd) buf)
       (cd qd)
-      (shell-command (concat "quilt " cmd) buf)
-      (cd d))))
+      (unwind-protect ; make sure to cd back even if an erro occurs.
+	  (shell-command (concat "quilt " cmd) buf)
+	(cd d)))))
 
 (defun quilt-cmd-to-string (cmd)
-  "execute a quilt command at the top of the quilt tree for the given buffer"
+  "Execute CMD, a quilt subcommand, at the top of quilt tree associated with BUF and return its output string."
   (let ((d default-directory)
 	 (qd (quilt-dir)))
     (if (not qd)
 	nil
       (cd qd)
-      (let ((r (shell-command-to-string (concat "quilt " cmd))))
-	(cd d) r))))
+      (unwind-protect ; make sure to cd back even if an error occurs.
+	  (shell-command-to-string (concat "quilt " cmd))
+	(cd d)))))
+
+(defun quilt-cmd-to-list (cmd)
+  "Execute CMD, a quilt sumcommand at the top of quilt tree associated with BUF.."
+  "Return the lines of the command output as elements of a list."
+  (let ((s (quilt-cmd-to-string cmd)))
+    (if s
+        (split-string s "\n" t))))
 
 (defun quilt-applied-list ()
-  (let ((s (quilt-cmd-to-string "applied")))
-    (if s
-	(split-string s "\n"))))
+  "Return the list of the applied patch names."
+  (quilt-cmd-to-list "applied"))
 
 (defun quilt-file-list ()
-  (let ((s (quilt-cmd-to-string "files")))
-    (if s
-	(split-string s "\n"))))
+  "Return the list of the file names associated with current patch."
+  (quilt-cmd-to-list "files"))
 
 (defun quilt-patch-list ()
-  (let ((s (quilt-cmd-to-string "series")))
-     (if s
-	 (split-string s "\n"))))
+  "Return the list of the name of patches."
+  (quilt-cmd-to-list "seriess"))
+
+(defun quilt-files-affected (&optional first last)
+  "Return the file names which modified from FIRST to LAST."
+  "Omitted args are considered as current patch."
+  (let ((qd (quilt-dir))
+        files fp)
+    (when qd
+      (setq files (quilt-cmd-to-list
+                   (if last
+                       (if (equal first last)
+                           (concat "files " first)
+                         (concat "files --combine " first last))
+                     (if first
+                         (concat "files --combine " first)
+                       "files"))))
+      (setq fp files)
+      (while fp
+        (setcar fp (concat qd (car fp)))
+        (setq fp (cdr fp)))
+      files)))
 
 (defun quilt-top-patch ()
+  "Return the top patch name.  return nil if there is the bottom of patch stack."
   (if (quilt-bottom-p)
       nil
     (file-name-nondirectory
      (substring (quilt-cmd-to-string "top")  0 -1))))
 
 (defun quilt-complete-list (p l)
-  (defun to-alist (list n)
-    (if list
-	(cons (cons (car list) n)
-	      (to-alist (cdr list) (+ 1 n)))
-      nil))
-  (completing-read p (to-alist l 0) nil t))
+  "Call 'completing-read' with prompt P and list L."
+"Convert L to an alist using indices as keys.  Note that this function modifies L."
+  (let ((list l)
+	(n 0))
+    (while list
+      (setcar list (cons (car list) n))
+      (setq list (cdr list))
+      (setq n (1+ n))))
+  (completing-read p l nil t))
 
 (defun quilt-editable (f)
+  "Return t if F is editable in terms of current patch.  Return nil if otherwise."
   (let ((qd (quilt-dir))
-	 (fn (quilt-drop-dir f)))
-    (defun editable (file dirs)
-      (if (car dirs)
-	  (if (file-exists-p (concat qd ".pc/" (car dirs) "/" file))
-	      't
-	    (editable file (cdr dirs)))
-	nil))
+	 (fn (quilt-drop-dir f))
+	 dirs result)
     (if qd
 	(if (quilt-bottom-p)
 	    (quilt-cmd "applied")	; to print error message
-	  (editable fn (if quilt-edit-top-only
-			   (list (quilt-top-patch))
-			 (cdr (cdr (directory-files (concat qd ".pc/"))))))))))
+	  (setq dirs (if quilt-edit-top-only
+			 (list (quilt-top-patch))
+			 (cdr (cdr (directory-files (concat qd ".pc/"))))))
+	  (while (and (not result) dirs)
+	    (if (file-exists-p (concat qd ".pc/" (car dirs) "/" fn))
+		(setq result t)
+	      (setq dirs (cdr dirs))))
+	  result))))
 
 (defun quilt-short-patchname ()
+  "Return shortened name of top patch.  Return nil if there is on the bottom of patch stack."
   (let ((p (quilt-top-patch)))
     (if (not p)
 	"none"
@@ -139,73 +197,80 @@
 (make-variable-buffer-local 'quilt-mode-line)
 
 (defun quilt-update-modeline ()
+  "Update mode line."
   (interactive)
   (setq quilt-mode-line
 	(concat " Q:" (quilt-short-patchname)))
   (force-mode-line-update))
 
-(defun quilt-revert ()
-  (defun revert-or-hook-buffer ()
-    ;; If the file doesn't exist on disk it can't be reverted, but we
-    ;; need the revert hooks to run anyway so that the buffer's
-    ;; editability will update.
-    (if (file-exists-p buffer-file-name)
-	(revert-buffer 't 't)
-      (run-hooks 'after-revert-hook)))
-  (defun revert (buf)
-    (save-excursion
-      (set-buffer buf)
-      (let* ((fn (quilt-buffer-file-name-safe)))
-	(if (quilt-p fn)
-	  (quilt-update-modeline))
-	(if (and (quilt-owned-p fn)
-		 (not (buffer-modified-p)))
-	  (revert-or-hook-buffer)))))
-  (defun revert-list (buffers)
-    (if (not (car buffers))
-	nil
-      (revert (car buffers))
-      (revert-list (cdr buffers))))
-  (revert-list (buffer-list)))
+(defun quilt-revert (filelist)
+  "Refresh contents, editability and modeline of FILESIT.
+FILELIST won't be touched unless their file is a child of the
+current quilt directory.  Each elements in FILELIST should be the absolute
+file names of those files affected by the latest quilt
+operation.  Associated buffers get reverted to update their
+contents.  Other buffers will only get their modeline and
+editability adjusted."
+  (let ((qd (quilt-dir))
+	fn)
+    (dolist (buf (buffer-list))
+      (if (not (string-match "^ " (buffer-name buf)))
+	(with-current-buffer buf
+	  (setq fn (quilt-buffer-file-name-safe))
+	  (when (string-equal qd (quilt-dir))
+	    (quilt-update-modeline)
+	    (when (and (not (buffer-modified-p))
+		       (quilt-owned-p fn))
+	      ;; If the file doesn't exist on disk it can't be reverted, but we
+	      ;; need the revert hooks to run anyway so that the buffer's
+	      ;; editability will update. Files not affected by the latest change
+	      ;; (as listed in filelist) don't need to get reverted either.
+	      (if (and (file-exists-p buffer-file-name)
+		       (member fn filelist))
+		  (progn
+		    (revert-buffer t t t))
+		(run-hooks 'after-revert-hook)))))))))
 
 (defun quilt-push (arg)
-  "Push next patch, force with prefix arg"
+  "Push next patch.  It is forced if ARG is specified."
   (interactive "P")
   (quilt-save)
   (if arg
       (quilt-cmd "push -f" "*quilt*")
     (quilt-cmd "push -q"))
-  (quilt-revert))
+  (quilt-revert (quilt-files-affected)))
 
 (defun quilt-pop (arg)
-  "Pop top patch, force with prefix arg"
+  "Pop top patch.  It is forced if ARG is specified."
   (interactive "P")
   (quilt-save)
   (if arg
       (quilt-cmd "pop -f")
     (quilt-cmd "pop -q"))
-  (quilt-revert))
+  (quilt-revert (quilt-files-affected)))
 
 (defun quilt-push-all (arg)
-  "Push all remaining patches"
+  "Push all remaining patches.  It is forced if ARG is specified."
   (interactive "P")
   (quilt-save)
-  (if arg
-      (quilt-cmd "push -f" "*quilt*")
-    (quilt-cmd "push -qa"))
-  (quilt-revert))
+  (let ((next (car (quilt-cmd-to-list "next"))))
+    (if arg
+	(quilt-cmd "push -f" "*quilt*")
+      (quilt-cmd "push -qa"))
+    (quilt-revert (quilt-files-affected next))))
 
 (defun quilt-pop-all (arg)
-  "Pop all applied patches, force with prefix arg"
+  "Pop all applied patches.  It is forced if ARG is specified."
   (interactive "P")
   (quilt-save)
-  (if arg
-      (quilt-cmd "pop -af")
-    (quilt-cmd "pop -qa"))
-  (quilt-revert))
+  (let ((fa (quilt-files-affected "-")))
+    (if arg
+	(quilt-cmd "pop -af")
+      (quilt-cmd "pop -qa"))
+    (quilt-revert fa)))
 
 (defun quilt-goto ()
-  "Go to a specified patch"
+  "Go to a specified patch."
   (interactive)
   (let ((qd (quilt-dir)))
     (if (not qd)
@@ -213,19 +278,28 @@
       (let ((arg (quilt-complete-list "Goto patch: " (quilt-patch-list))))
 	(if (string-equal arg "")
 	    (message "no patch name is supplied")
-	    (quilt-save)
+	  (quilt-save)
+	  (let (cmd first last)
 	    (if (file-exists-p (concat qd ".pc/" arg))
-		(quilt-cmd (concat "pop -q " arg) "*quilt*")
-	      (quilt-cmd (concat "push -q " arg) "*quilt*"))
-	    (quilt-revert))))))
+		(progn
+		  (setq cmd "pop")
+		  (setq first (car (quilt-cmd-to-list (concat "next " arg))))
+		  (setq last (quilt-top-patch)))
+	      (setq cmd "push")
+	      (setq last arg)
+	      (setq first (if (quilt-bottom-p)
+			      "-"
+			    (car (quilt-cmd-to-list "next")))))
+	    (quilt-cmd (concat cmd " -q " arg) "*quilt*")
+	  (quilt-revert (quilt-files-affected first last))))))))
 
 (defun quilt-top ()
-  "Display topmost patch"
+  "Display topmost patch."
   (interactive)
   (quilt-cmd "top"))
 
 (defun quilt-find-file ()
-  "Find a file in the topmost patch"
+  "Find a file in the topmost patch."
   (interactive)
   (let ((qd (quilt-dir)))
     (if (not qd)
@@ -241,42 +315,41 @@
 		(find-file (concat qd f))))))))))
 
 (defun quilt-files ()
-  "Display files in topmost patch"
+  "Display files in topmost patch."
   (interactive)
   (quilt-cmd "files"))
 
 (defun quilt-import (fn pn)
-  "Import external patch"
+  "Import external patch FN as PN.patch."
   (interactive "fPatch to import: \nsPatch name: ")
   (if (not pn)
       (message "no patch name supplied")
     (quilt-cmd (concat "import -p " pn ".patch " (if fn fn pn)))))
 
 (defun quilt-diff ()
-  "Display diff of current changes"
+  "Display the diff of current change."
   (interactive)
   (quilt-save)
   (quilt-cmd "diff" "*diff*"))
 
 (defun quilt-new (f)
-  "Create a new patch"
+  "Create a new patch F.patch."
   (interactive "sPatch name: ")
   (if (string-equal f "")
       (message "no patch name is supplied")
     (quilt-save)
     (quilt-cmd (concat "new " f ".patch"))
-    (quilt-revert)))
+    (quilt-revert nil)))
 
 (defun quilt-applied ()
-  "Show applied patches"
+  "Show applied patches."
   (interactive)
   (quilt-cmd "applied" "*quilt*"))
 
 (defun quilt-add (arg)
-  "Add a file to the current patch"
+  "Add ARG to the current patch."
   (interactive "b")
-  (save-excursion
-    (set-buffer arg)
+  (with-current-buffer arg
     (let ((fn (quilt-buffer-file-name-safe)))
       (cond
        ((not fn)
@@ -285,10 +358,10 @@
 	(quilt-cmd (concat "push")))	; to print error message
        (t
 	(quilt-cmd (concat "add " (quilt-drop-dir fn)))
-	(quilt-revert))))))
+	(quilt-revert (list fn)))))))
 
 (defun quilt-edit-patch ()
-  "Edit the topmost patch"
+  "Edit the topmost patch."
   (interactive)
   (let ((qd (quilt-dir)))
     (if (not qd)
@@ -306,7 +379,7 @@
 	      (message (format "%s doesn't exist yet." pf)))))))))
 
 (defun quilt-patches ()
-  "Show which patches modify the current buffer"
+  "Show which patches modify the current buffer."
   (interactive)
   (let ((fn (quilt-buffer-file-name-safe)))
     (cond
@@ -318,18 +391,18 @@
       (quilt-cmd (concat "patches " (quilt-drop-dir fn)))))))
 
 (defun quilt-unapplied ()
-  "Display unapplied patch list"
+  "Display unapplied patch list."
   (interactive)
   (quilt-cmd "unapplied" "*quilt*"))
 
 (defun quilt-refresh ()
-  "Refresh the current patch"
+  "Refresh the current patch."
   (interactive)
   (quilt-save)
   (quilt-cmd "refresh"))
 
 (defun quilt-remove ()
-  "Remove a file from the current patch and revert it"
+  "Remove a file from the current patch and revert it."
   (interactive)
   (let ((f (quilt-buffer-file-name-safe)))
     (cond
@@ -344,10 +417,10 @@
 	  (if (y-or-n-p (format "Really drop %s? " dropped))
 	      (progn
 		(quilt-cmd (concat "remove " dropped))
-		(quilt-revert)))))))))
+		(quilt-revert (list f))))))))))
 
 (defun quilt-edit-series ()
-  "Edit the patch series file"
+  "Edit the patch series file."
   (interactive)
   (let ((qd (quilt-dir)))
     (if (not qd)
@@ -359,7 +432,7 @@
 	  (message (quilt-top-patch)))))))
 
 (defun quilt-header (arg)
-  "Print the header of a patch"
+  "Print the header of ARG."
   (interactive "P")
   (let ((qd (quilt-dir)))
     (if (not qd)
@@ -372,7 +445,7 @@
 	    (quilt-cmd (concat "header " p))))))))
 
 (defun quilt-delete (arg)
-  "Delete a patch from the series file"
+  "Delete ARG from the series file."
   (interactive "P")
   (let ((qd (quilt-dir)))
     (if (not qd)
@@ -384,14 +457,16 @@
 	    (message "no patch name is supplied")
 	  (if (not p)
 	      (quilt-cmd "applied")	; to print error message
-	    (if (y-or-n-p (format "Really delete %s?" p))
-		(progn
+	    (if (y-or-n-p (format "Really delete %s? " p))
+		(let ((fa (quilt-files-affected p p)))
 		  (quilt-save)
 		  (quilt-cmd (concat "delete " p))
-		  (quilt-revert)))))))))
+		  (quilt-revert fa)))))))))
+
+(defvar quilt-header-directory nil)
 
 (defun quilt-header-commit ()
-  "commit to change patch header"
+  "Commit to change patch header."
   (interactive)
   (let ((tmp (make-temp-file "quilt-header-")))
     (set-visited-file-name tmp)
@@ -405,7 +480,7 @@
 (define-key quilt-header-mode-map "\C-c\C-c" 'quilt-header-commit)
 
 (defun quilt-edit-header (arg)
-  "Edit the header of a patch"
+  "Edit the header of ARG."
   (interactive "P")
   (let ((qd (quilt-dir)))
     (if (not qd)
@@ -417,20 +492,19 @@
 	      (message "no patch name is supplied")
 	    (if (not p)
 		(quilt-cmd "applied")	; to print error message
-	      (let ((qb (get-buffer-create (format " *quilt-heaer(%s)*" p))))
+	      (let ((qb (get-buffer-create (format " *quilt-header(%s)*" p))))
 		(switch-to-buffer-other-window qb)
 		(erase-buffer)
 		(kill-all-local-variables)
 		(make-local-variable 'quilt-header-directory)
 		(setq quilt-header-directory default-directory)
-		(setq mode-map "quilt-header")
 		(use-local-map quilt-header-mode-map)
 		(setq major-mode 'quilt-header-mode)
 		(call-process "quilt" nil qb nil "header" p)
 		(goto-char 0))))))))
 
 (defun quilt-series (arg)
-  "Show patche series."
+  "Show patche series.  It can be verbose mode if ARG is specified."
   (interactive "P")
   (if arg
       (quilt-cmd "series -v")
@@ -466,10 +540,9 @@
 (defvar quilt-edit-top-only 't)
 
 (defun quilt-mode (&optional arg)
-  "Toggle quilt-mode. With positive arg, enable quilt-mode.
+  "Toggle 'quilt-mode'.  Enable 'quilt-mode' if ARG is positive.
 
-\\{quilt-mode-map}
-"
+\\{quilt-mode-map}"
   (interactive "P")
   (setq quilt-mode
 	(if (null arg)
@@ -497,3 +570,7 @@
 (or (assq 'quilt-mode-map minor-mode-map-alist)
     (setq minor-mode-map-alist
 	  (cons (cons 'quilt-mode quilt-mode-map) minor-mode-map-alist)))
+
+(provide 'quilt)
+
+;;; quilt.el ends here

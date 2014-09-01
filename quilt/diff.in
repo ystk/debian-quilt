@@ -21,7 +21,7 @@ setup_colors
 
 usage()
 {
-	printf $"Usage: quilt diff [-p n|-p ab] [-u|-U num|-c|-C num] [--combine patch|-z] [-R] [-P patch] [--snapshot] [--diff=utility] [--no-timestamps] [--no-index] [--sort] [--color] [file ...]\n"
+	printf $"Usage: quilt diff [-p n|-p ab] [-u|-U num|-c|-C num] [--combine patch|-z] [-R] [-P patch] [--snapshot] [--diff=utility] [--no-timestamps] [--no-index] [--sort] [--color[=always|auto|never]] [file ...]\n"
 
 	if [ x$1 = x-h ]
 	then
@@ -69,7 +69,7 @@ included.
 	is invoked with the original and new file name as arguments.
 
 --color[=always|auto|never]
-	Use syntax coloring.
+	Use syntax coloring (auto activates it only if the output is a tty).
 
 --sort	Sort files by their name instead of preserving the original order.
 "
@@ -79,7 +79,8 @@ included.
 	fi
 }
 
-colorize() {
+colorize()
+{
 	if [ -n "$opt_color" ]
 	then
 		sed -e '
@@ -97,7 +98,7 @@ colorize() {
 
 do_diff()
 {
-	local file=$1 old_file=$2 new_file=$3
+	local file=$1 old_file=$2 new_file=$3 status
 
 	if [ -n "$opt_reverse" ]
 	then
@@ -119,6 +120,13 @@ do_diff()
 		fi
 	else
 		diff_file "$file" "$old_file" "$new_file" | colorize
+
+		# Test the return value of diff, and propagate the error if any
+		status=${PIPESTATUS[0]}
+		if [ $status != 0 ]
+		then
+			die $status
+		fi
 	fi
 }
 
@@ -149,7 +157,7 @@ do
 		opt_strip_level=$2
 		shift 2 ;;
 	-P)
-		last_patch="$2"
+		last_patch=$2
 		shift 2 ;;
 	--combine)
 		opt_combine=1
@@ -179,7 +187,7 @@ do
 		snap_subdir=.snap
 		shift ;;
 	--diff)
-		opt_diff="$2"
+		opt_diff=$2
 		shift 2 ;;
 	--no-timestamps)
 		QUILT_NO_DIFF_TIMESTAMPS=1
@@ -211,7 +219,7 @@ done
 
 QUILT_DIFF_OPTS="$QUILT_DIFF_OPTS $opt_format"
 
-opt_files=( $(for file in "$@"; do echo "$SUBDIR$file" ; done) )
+opt_files=( $(for file in "$@"; do echo "$SUBDIR${file#./}" ; done) )
 
 if [ $[0$opt_combine + 0$opt_snapshot + 0$opt_relative] -gt 1 ]
 then
@@ -223,7 +231,7 @@ last_patch=$(find_applied_patch "$last_patch") || exit 1
 
 if [ -z "$opt_strip_level" ]
 then
-	opt_strip_level=$(patch_strip_level $last_patch)
+	opt_strip_level=$(patch_strip_level "$last_patch")
 fi
 case "$opt_strip_level" in
 0 | 1 | ab)
@@ -251,17 +259,19 @@ if [ -n "$opt_snapshot" -a ${#opt_files[@]} -eq 0 ]
 then
 	# Add all files in the snapshot into the file list (they may all
 	# have changed).
-	files=( $(find $QUILT_PC/$snap_subdir -type f | sort) )
-	printf "%s\n" "${files[@]#$QUILT_PC/$snap_subdir/}" >&4
+	files=( $(find $QUILT_PC/$snap_subdir -type f \
+		  | sed -e "s/^$(quote_bre $QUILT_PC/$snap_subdir/)//" \
+		  | sort) )
+	printf "%s\n" "${files[@]}" >&4
 	unset files
 	# Also look at all patches that are currently applied.
 	opt_combine=1
-	first_patch="$(applied_patches | head -n 1)"
+	first_patch=$(applied_patches | head -n 1)
 fi
 
 if [ -n "$opt_combine" ]
 then
-	set -- $(patches_before $last_patch) $last_patch
+	set -- $(patches_before "$last_patch") "$last_patch"
 	if [ "$first_patch" != "-" ]
 	then
 		while [ $# -ge 1 -a "$1" != "$first_patch" ]
@@ -271,14 +281,14 @@ then
 		if [ $# -eq 0 ]
 		then
 			printf $"Patch %s not applied before patch %s\n" \
-			       "$(print_patch $first_patch)" \
-			       "$(print_patch $last_patch)" >&2
+			       "$(print_patch "$first_patch")" \
+			       "$(print_patch "$last_patch")" >&2
 			die 1
 		fi
 	fi
-	patches=( $@ )
+	patches=( "$@" )
 else
-	patches=( $last_patch )
+	patches=( "$last_patch" )
 fi
 
 # Properly handle spaces in file names
@@ -287,10 +297,10 @@ IFS=$'\n'
 
 for patch in ${patches[@]}
 do
-	for file in $(files_in_patch_ordered $patch)
+	for file in $(files_in_patch_ordered "$patch")
 	do
 		if [ ${#opt_files[@]} -gt 0 ] && \
-		   ! in_array "$file" "${opt_files[@]#./}"
+		   ! in_array "$file" "${opt_files[@]}"
 		then
 			continue
 		fi
@@ -347,7 +357,7 @@ do
 	next_patch=$(next_patch_for_file "$last_patch" "$file")
 	if [ -z "$next_patch" ]
 	then
-		new_file="$file"
+		new_file=$file
 	else
 		new_file=$(backup_file_name "$next_patch" "$file")
 		files_were_shadowed=1
@@ -365,7 +375,7 @@ done
 if [ -n "$files_were_shadowed" ]
 then
 	printf $"Warning: more recent patches modify files in patch %s\n" \
-	       "$(print_patch $last_patch)" >&2
+	       "$(print_patch "$last_patch")" >&2
 fi
 die 0
 ### Local Variables:

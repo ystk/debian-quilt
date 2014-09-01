@@ -47,7 +47,8 @@ fi
 
 declare -a exit_handlers
 
-add_exit_handler() {
+add_exit_handler()
+{
 	exit_handlers[${#exit_handlers[@]}]=$1
 }
 
@@ -76,6 +77,20 @@ trap run_exit_handlers EXIT
 
 # ========================================================
 
+# Join multiple stings using the given separator.
+array_join()
+{
+	local sep=$1 str=$2
+	shift 2
+
+	printf %s "$str"
+
+	for str in "$@"
+	do
+		printf %s%s "$sep" "$str"
+	done
+}
+
 # Quote a string for use in a basic regular expression.
 quote_bre()
 {
@@ -86,6 +101,12 @@ quote_bre()
 quote_re()
 {
 	echo "$1" | sed -e 's:\([][?{(|)}^$/.+*\\]\):\\\1:g'
+}
+
+# Quote a string for use in a globing pattern.
+quote_glob()
+{
+	echo "$1" | sed -e 's:\([][*?\\]\):\\\1:g'
 }
 
 patch_file_name()
@@ -175,7 +196,7 @@ change_db_strip_level()
 				}
 			  }
 			  if (!p_printed && "'"$level"'" != "")
-			  	insert_arg(2, "'"$level"'")
+				insert_arg(2, "'"$level"'")
 			}
 			{ print }
 		' $SERIES > $tmpfile
@@ -193,11 +214,11 @@ patch_in_series()
 {
 	local patch=$1
 
-	if ! [ -e $SERIES ]
+	if [ -e $SERIES ]
 	then
-		return 1
-	else
 		grep -q "^$(quote_bre $patch)\([ \t]\|$\)" $SERIES
+	else
+		return 1
 	fi
 }
 
@@ -257,7 +278,7 @@ remove_from_series()
 	if [ $? -ne 0 ]
 	then
 		rm -f $tmpfile
-	   	return 1
+		return 1
 	fi
 	cat $tmpfile > $SERIES
 	rm -f $tmpfile
@@ -363,7 +384,7 @@ applied_before()
 		' $DB
 	fi
 }
-		
+
 patches_before()
 {
 	local patch=$1
@@ -422,7 +443,7 @@ next_patch_for_file()
 	then
 		for patch in $patches_on_top
 		do
-			if [ -f $(backup_file_name $patch $file) ]
+			if file_in_patch "$file" $patch
 			then
 				echo $patch
 				break
@@ -557,12 +578,12 @@ find_applied_patch()
 		local patch
 
 		patch=$(find_patch "$name") || return 1
-	        if ! is_applied "$patch"
-	        then
-	                printf $"Patch %s is not applied\n" \
+		if ! is_applied "$patch"
+		then
+			printf $"Patch %s is not applied\n" \
 			       "$(print_patch $patch)" >&2
-	                return 1
-	        fi
+			return 1
+		fi
 		echo "$patch"
 	else
 		find_top_patch
@@ -578,12 +599,12 @@ find_unapplied_patch()
 		local patch
 
 		patch=$(find_patch "$name") || return 1
-	        if is_applied "$patch"
-	        then
+		if is_applied "$patch"
+		then
 			printf $"Patch %s is currently applied\n" \
 				"$(print_patch $patch)" >&2
-               		return 1
-	        fi
+			return 2
+		fi
 		echo "$patch"
 	else
 		local start
@@ -592,48 +613,15 @@ find_unapplied_patch()
 		then
 			patch_after "$start"
 		else
-			find_first_patch || return 1
+			find_first_patch || return 2
 		fi
 		if [ $? -ne 0 ]
 		then
 			printf $"File series fully applied, ends at patch %s\n" \
 				"$(print_patch $start)" >&2
-			return 1
+			return 2
 		fi
 	fi
-}
-
-find_patch_file()
-{
-	local name="$1"
-
-	if [ ${name:0:1} = / ]
-	then
-		# Patch has absolute path
-		if [ -r "$name" ]
-		then
-			echo "$name"
-			return
-		fi
-	else
-		# Patch has a relative path
-		if [ -r "$SUBDIR$name" ]
-		then
-			echo "$SUBDIR$name"
-			return
-		fi
-	fi
-
-	local patch
-
-	patch=$(find_patch_in_series "$name" 2>/dev/null)
-	if [ -z "$patch" ]
-	then
-		printf $"Patch %s does not exist\n" "$name" >&2
-		return 1
-	fi
-
-	echo $(patch_file_name "$patch")
 }
 
 file_in_patch()
@@ -650,8 +638,8 @@ files_in_patch()
 	if [ -d "$path" ]
 	then
 		find "$path" -type f \
-			       -a ! -path "$path/.timestamp" |
-		sed -e "s:$path/::"
+			       -a ! -path "$(quote_glob "$path")/.timestamp" |
+		sed -e "s/$(quote_bre "$path")\///"
 	fi
 }
 
@@ -718,30 +706,30 @@ diff_file()
 		new_hdr=$dir/$file
 	fi
 	index=$new_hdr
-	
-	if ! [ -s "$old_file" ]
+
+	if [ -s "$old_file" ]
 	then
+		[ -n "$QUILT_NO_DIFF_TIMESTAMPS" ] \
+		|| old_date=$'\t'$(date +'%Y-%m-%d %H:%M:%S.%N %z' \
+					-r "$old_file")
+	else
 		old_file=/dev/null
 		old_hdr=/dev/null
 		[ -n "$QUILT_NO_DIFF_TIMESTAMPS" ] \
 		|| old_date=$'\t'"1970-01-01 00:00:00.000000000 +0000"
-	else
-		[ -n "$QUILT_NO_DIFF_TIMESTAMPS" ] \
-		|| old_date=$'\t'$(date +'%Y-%m-%d %H:%M:%S.%N %z' \
-					-r "$old_file")
 	fi
-	if ! [ -s "$new_file" ]
+	if [ -e "$new_file" ]
 	then
+		[ -n "$QUILT_NO_DIFF_TIMESTAMPS" ] \
+		|| new_date=$'\t'$(date +'%Y-%m-%d %H:%M:%S.%N %z' \
+					-r "$new_file")
+	else
 		[ $opt_strip_level = 0 ] \
 		&& old_hdr=$new_hdr
 		new_file=/dev/null
 		new_hdr=/dev/null
 		[ -n "$QUILT_NO_DIFF_TIMESTAMPS" ] \
 		|| new_date=$'\t'"1970-01-01 00:00:00.000000000 +0000"
-	else
-		[ -n "$QUILT_NO_DIFF_TIMESTAMPS" ] \
-		|| new_date=$'\t'$(date +'%Y-%m-%d %H:%M:%S.%N %z' \
-					-r "$new_file")
 	fi
 
 	diff $QUILT_DIFF_OPTS \
@@ -757,12 +745,18 @@ diff_file()
 		echo "$line"
 		cat
 	fi
+
+	# Test the return value of diff, and propagate the error retcode if any
+	if [ ${PIPESTATUS[0]} == 2 ]
+	then
+		return 1
+	fi
 }
 
 cat_file()
 {
 	local filename
-	
+
 	for filename in "$@"
 	do
 		if [ -e "$filename" ]
@@ -881,7 +875,7 @@ apply_patch_temporarily()
 	local prefix=$QUILT_PC/$patch/
 	[ ${prefix:0:1} == / ] || prefix=$PWD/$prefix
 	if ! ( cd $workdir && \
-	       $QUILT_DIR/scripts/backup-files -B $prefix -r -k -s ${@:--} )
+	       $QUILT_DIR/scripts/backup-files -B $prefix -r -k -s "${@:--}" )
 	then
 		printf $"Failed to copy files to temporary directory\n" >&2
 		return 1
@@ -891,7 +885,7 @@ apply_patch_temporarily()
 	then
 		if ! cat_file $patch_file \
 		     | patch -d $workdir $QUILT_PATCH_OPTS $patch_args \
-		     	     --no-backup-if-mismatch -Ef \
+			     --no-backup-if-mismatch -f \
 			     >/dev/null 2>/dev/null
 		then
 			# Generating a relative diff for a subset of files in
@@ -911,14 +905,15 @@ apply_patch_temporarily()
 next_filename()
 {
 	local patch=$1 base num
-        base=$(echo "$patch" \
-               | sed -r -e 's:(\.gz|\.bz2|\.xz|\.lzma)$::' -e 's:(\.diff?|\.patch)$::')
-        num=$(echo "$base" | sed -nre 's:.*-([0-9]+)$:\1:'p)
-        [ -n "$num" ] || num=1
-        echo "${base%-$num}-$((num+1))${patch#$base}"
+	base=$(echo "$patch" \
+	       | sed -r -e 's:(\.gz|\.bz2|\.xz|\.lzma)$::' -e 's:(\.diff?|\.patch)$::')
+	num=$(echo "$base" | sed -nre 's:.*-([0-9]+)$:\1:'p)
+	[ -n "$num" ] || num=1
+	echo "${base%-$num}-$((num+1))${patch#$base}"
 }
 
-create_db() {
+create_db()
+{
 	if ! [ -e $QUILT_PC ]
 	then
 		mkdir -p $QUILT_PC
@@ -934,7 +929,8 @@ create_db() {
 	fi
 }
 
-version_check() {
+version_check()
+{
 	[ -e $QUILT_PC ] || return 0
 
 	if [ -e $QUILT_PC/.version ]
@@ -952,13 +948,22 @@ version_check() {
 	return 1
 }
 
-print_patch() {
-	echo -n "${QUILT_PATCHES_PREFIX:+$SUBDIR_DOWN$QUILT_PATCHES/}$1"
+print_patch()
+{
+	echo "${QUILT_PATCHES_PREFIX:+$SUBDIR_DOWN$QUILT_PATCHES/}$1"
+}
+
+# Generate a format suitable to print patch names with printf
+patch_format()
+{
+	local prefix=${QUILT_PATCHES_PREFIX:+$SUBDIR_DOWN$QUILT_PATCHES/}
+
+	echo -n "${prefix/\%/%%}%s"
 }
 
 setup_colors()
 {
-	local C=diff_hdr=32:diff_add=36:diff_mod=35:diff_rem=35:diff_hunk=33:diff_ctx=35:diff_cctx=33:patch_offs=33:patch_fuzz=35:patch_fail=31:patch_applied=32:series_app=32:series_top=33:series_una=00:clear=00
+	local C=diff_hdr=32:diff_add=36:diff_mod=35:diff_rem=35:diff_hunk=33:diff_ctx=35:diff_cctx=33:patch_offs=33:patch_fuzz=35:patch_fail=31:series_app=32:series_top=33:series_una=00:clear=00
 	[ -n "$QUILT_COLORS" ] && C="$C:$QUILT_COLORS"
 
 	C=${C//=/=\'$'\e'[}
@@ -996,9 +1001,9 @@ setup_pager()
 {
 	test -t 1 || return 0
 
-	# QUILT_PAGER = QUILT_PAGER | GIT_PAGER | PAGER | less
+	# QUILT_PAGER = QUILT_PAGER | GIT_PAGER | PAGER | less -R
 	# NOTE: QUILT_PAGER='' is significant
-	QUILT_PAGER=${QUILT_PAGER-${GIT_PAGER-${PAGER-less}}}
+	QUILT_PAGER=${QUILT_PAGER-${GIT_PAGER-${PAGER-less -R}}}
 
 	[ -z "$QUILT_PAGER" -o "$QUILT_PAGER" = "cat" ]  && return 0
 
